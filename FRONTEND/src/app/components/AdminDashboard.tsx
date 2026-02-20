@@ -20,6 +20,7 @@ import {
   TabsTrigger,
 } from "@/app/components/ui/tabs";
 import { Button } from "@/app/components/ui/button";
+import { Card } from "@/app/components/ui/card";
 import { GraduationCap } from "lucide-react";
 
 /* -------------------- Initial Data -------------------- */
@@ -30,9 +31,13 @@ const initialStudents: Student[] = [
     grade: "Grade 10",
     parentName: "Michael Johnson",
     parentContact: "+1 (555) 123-4567",
+    parentEmail: "michael.j@email.com",
     feeAmount: 5000,
     feeStatus: "paid",
     dueDate: "2026-01-15",
+    type: "Tuition Fee",
+    description: "Monthly tuition fee for January 2026",
+    notificationMethod: "sms",
   },
   {
     id: "2",
@@ -40,9 +45,13 @@ const initialStudents: Student[] = [
     grade: "Grade 9",
     parentName: "Sarah Smith",
     parentContact: "+1 (555) 234-5678",
+    parentEmail: "sarah.s@email.com",
     feeAmount: 5000,
     feeStatus: "pending",
     dueDate: "2026-01-20",
+    type: "Tuition Fee",
+    description: "Monthly tuition fee for January 2026",
+    notificationMethod: "email",
   },
 ];
 
@@ -89,20 +98,34 @@ export default function AdminDashboard() {
     setStudents((prev) => prev.filter((s) => s.id !== studentId));
   };
 
-  const handleNotifyParent = (studentId: string) => {
+  /* -------------------- Notification Handler with Method -------------------- */
+  const handleNotifyParent = (studentId: string, method: 'sms' | 'email') => {
     const student = students.find((s) => s.id === studentId);
     if (!student) return;
 
+    // Validate contact info
+    if (method === 'sms' && !student.parentContact) {
+      toast.error('Phone number not available for SMS');
+      return;
+    }
+    if (method === 'email' && !student.parentEmail) {
+      toast.error('Email not available for email');
+      return;
+    }
+
+    const methodText = method === 'sms' ? 'SMS' : 'Email';
+    const recipient = method === 'sms' ? student.parentContact : student.parentEmail;
+
     const newNotification: Notification = {
       id: Date.now().toString(),
-      recipient: student.parentContact,
-      message: `Reminder: School fee payment for ${student.name} is ${student.feeStatus}. Amount: ₱${student.feeAmount}`,
+      recipient: recipient || '',
+      message: `[${methodText}] Reminder: School fee payment for ${student.name} is ${student.feeStatus}. Amount: ₱${student.feeAmount}. Type: ${student.type || 'Tuition Fee'}`,
       timestamp: new Date().toLocaleString(),
       status: "sent",
     };
 
     setNotifications((prev) => [newNotification, ...prev]);
-    toast.success(`Notification sent to ${student.parentName}`);
+    toast.success(`${methodText} notification sent to ${student.parentName}`);
   };
 
   const handleSendNotification = (recipient: string, message: string) => {
@@ -179,6 +202,15 @@ export default function AdminDashboard() {
   /* -------------------- UI -------------------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] p-6">
+      <style>{`
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        * {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -187,7 +219,7 @@ export default function AdminDashboard() {
               <GraduationCap className="w-10 h-10 text-[#0F2854]" />
             </div>
             <div>
-              <h1 className="text-3xl text-white">Admin Dashboard</h1>
+              <h1 className="text-3xl text-white font-bold">Admin Dashboard</h1>
               <p className="text-[#BDE8F5]">
                 Student Fee Management & Notifications
               </p>
@@ -213,35 +245,35 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <Card className="p-6 bg-white">
+          <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
             <div>
-              <p>Total Students</p>
-              <p className="text-3xl">{totalStudents}</p>
+              <p className="text-sm text-muted-foreground mb-1">Total Students</p>
+              <p className="text-3xl font-bold text-[#0F2854]">{totalStudents}</p>
             </div>
           </Card>
 
-          <Card className="p-6 bg-white">
+          <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
             <div>
-              <p>Fees Collected</p>
-              <p className="text-3xl text-green-600">
+              <p className="text-sm text-muted-foreground mb-1">Fees Collected</p>
+              <p className="text-3xl font-bold text-green-600">
                 ₱{totalCollected.toLocaleString()}
               </p>
             </div>
           </Card>
 
-          <Card className="p-6 bg-white">
+          <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
             <div>
-              <p>Pending Fees</p>
-              <p className="text-3xl text-red-600">
+              <p className="text-sm text-muted-foreground mb-1">Pending Fees</p>
+              <p className="text-3xl font-bold text-red-600">
                 ₱{totalPending.toLocaleString()}
               </p>
             </div>
           </Card>
 
-          <Card className="p-6 bg-white">
+          <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
             <div>
-              <p>Notifications</p>
-              <p className="text-3xl text-purple-600">{notifications.length}</p>
+              <p className="text-sm text-muted-foreground mb-1">Notifications</p>
+              <p className="text-3xl font-bold text-purple-600">{notifications.length}</p>
             </div>
           </Card>
         </div>
@@ -249,47 +281,65 @@ export default function AdminDashboard() {
         {/* Tabs */}
         <Tabs defaultValue="students" className="space-y-6">
           <TabsList className="bg-white/10 border-white/20">
-            <TabsTrigger value="students">Students</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="receipts">Receipts</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
+            <TabsTrigger
+              value="students"
+              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5]"
+            >
+              Students
+            </TabsTrigger>
+            <TabsTrigger
+              value="analytics"
+              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5]"
+            >
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger
+              value="notifications"
+              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5]"
+            >
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger
+              value="receipts"
+              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5]"
+            >
+              Receipts
+            </TabsTrigger>
+            <TabsTrigger
+              value="events"
+              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5]"
+            >
+              Events
+            </TabsTrigger>
           </TabsList>
 
           {/* Students Tab */}
           <TabsContent value="students">
-            <Card bg="white/95" className="p-6 backdrop-blur-sm">
-              <StudentTable
-                students={students}
-                onNotifyParent={handleNotifyParent}
-                onRecordPayment={handleRecordPayment}
-                onAddStudent={handleAddStudent}
-                onEditStudent={handleEditStudent}
-                onDeleteStudent={handleDeleteStudent}
-              />
-            </Card>
+            <StudentTable
+              students={students}
+              onNotifyParent={handleNotifyParent}
+              onRecordPayment={handleRecordPayment}
+              onAddStudent={handleAddStudent}
+              onEditStudent={handleEditStudent}
+              onDeleteStudent={handleDeleteStudent}
+            />
           </TabsContent>
 
           {/* Analytics Tab */}
           <TabsContent value="analytics">
-            <Card bg="white/95" className="p-6 backdrop-blur-sm">
+            <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
               <FeeStats />
             </Card>
           </TabsContent>
 
           {/* Notifications Tab */}
           <TabsContent value="notifications">
-            <Card bg="white/95" className="p-6 backdrop-blur-sm">
-              <NotificationPanel
-                notifications={notifications}
-                onSendNotification={handleSendNotification}
-              />
-            </Card>
+            <NotificationPanel notifications={notifications} />
           </TabsContent>
 
           {/* Receipts Tab */}
           <TabsContent value="receipts">
-            <Card bg="white/95" className="p-6 backdrop-blur-sm">
+            <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
               <ReceiptFeedbackPanel
                 receipts={sentReceipts}
                 onResendReceipt={handleResendReceipt}
@@ -300,7 +350,7 @@ export default function AdminDashboard() {
 
           {/* Events Tab */}
           <TabsContent value="events">
-            <Card bg="white/95" className="p-6 backdrop-blur-sm">
+            <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
               <EventTable
                 events={events}
                 onAddEvent={handleAddEvent}
@@ -313,17 +363,4 @@ export default function AdminDashboard() {
       </div>
     </div>
   );
-}
-
-/* -------------------- Reusable Card -------------------- */
-function Card({
-  children,
-  className,
-  bg = "white",
-}: {
-  children: React.ReactNode;
-  className?: string;
-  bg?: string;
-}) {
-  return <div className={`rounded-xl shadow-lg ${bg} ${className}`}>{children}</div>;
 }

@@ -1,5 +1,4 @@
 "use client";
-
 import * as React from "react";
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
@@ -28,7 +27,7 @@ type CarouselContextProps = {
   scrollNext: () => void;
   canScrollPrev: boolean;
   canScrollNext: boolean;
-} & CarouselProps;
+} & CarouselProps;  
 
 const CarouselContext = React.createContext<CarouselContextProps | null>(null);
 

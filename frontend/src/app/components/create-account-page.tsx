@@ -4,7 +4,7 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Button } from "@/app/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
-import { GraduationCap, Eye, EyeOff, Mail, Smartphone, ArrowLeft } from "lucide-react";
+import { GraduationCap, Eye, EyeOff, Mail, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -25,13 +25,43 @@ export default function CreateAccountPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Validation helpers
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const validatePhone = (phone: string) => {
+    return /^[\d\s\-\+\(\)]{10,}$/.test(phone.replace(/\s/g, ""));
+  };
+
+  const validatePassword = (password: string) => {
+    return (
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password)
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
-    if (!formData.firstName || !formData.middleName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (
+      !formData.firstName.trim() ||
+      !formData.lastName.trim() ||
+      !formData.email.trim() ||
+      !formData.password.trim() ||
+      !formData.confirmPassword.trim()
+    ) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -40,31 +70,71 @@ export default function CreateAccountPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-
-    if (!notificationContact) {
+    if (!validatePassword(formData.password)) {
       toast.error(
-        `Please enter your ${notificationMethod === "email" ? "Gmail address" : "phone number"}`
+        "Password must be at least 8 characters with uppercase, lowercase, and number"
       );
       return;
     }
 
-    if (notificationMethod === "email" && !notificationContact.includes("@")) {
+    if (!notificationContact.trim()) {
+      toast.error(
+        `Please enter your ${
+          notificationMethod === "email" ? "email address" : "phone number"
+        }`
+      );
+      return;
+    }
+
+    if (notificationMethod === "email" && !validateEmail(notificationContact)) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (notificationMethod === "phone" && !validatePhone(notificationContact)) {
+      toast.error("Please enter a valid phone number (at least 10 digits)");
+      return;
+    }
+
+    if (!agreedToTerms) {
+      toast.error("Please agree to the Terms and Conditions");
       return;
     }
 
     setIsLoading(true);
 
-    // Simulate account creation
-    setTimeout(() => {
-      toast.success("Account created successfully!");
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.firstName.trim(),
+          middleName: formData.middleName.trim(),
+          lastName: formData.lastName.trim(),
+          email: formData.email.trim(),
+          password: formData.password,
+          notificationMethod,
+          notificationContact: notificationContact.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Account created successfully!");
+        setIsLoading(false);
+        setTimeout(() => {
+          navigate("/login");
+        }, 1500);
+      } else {
+        toast.error(data.message || "Failed to create account");
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong. Try again later.");
       setIsLoading(false);
-      navigate("/login");
-    }, 1500);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -82,14 +152,17 @@ export default function CreateAccountPage() {
 
       {/* Create Account Form */}
       <Card className="w-full max-w-2xl p-8 shadow-2xl relative z-10 bg-white/95 backdrop-blur-sm">
-       
-
+        {/* Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="p-3 bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] rounded-xl mb-4 shadow-lg">
             <GraduationCap className="w-12 h-12 text-white" />
           </div>
-          <h1 className="text-3xl text-center mb-2 text-[#0F2854]">Create Account</h1>
-          <p className="text-muted-foreground text-center">Join the Student Fee Management System</p>
+          <h1 className="text-3xl text-center mb-2 text-[#0F2854]">
+            Create Account
+          </h1>
+          <p className="text-muted-foreground text-center text-[#1C4D8D]">
+            Join the Student Fee Management System
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -104,7 +177,9 @@ export default function CreateAccountPage() {
                 type="text"
                 placeholder="First Name"
                 value={formData.firstName}
-                onChange={(e) => handleInputChange("firstName", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("firstName", e.target.value)
+                }
                 disabled={isLoading}
                 className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
               />
@@ -112,14 +187,16 @@ export default function CreateAccountPage() {
 
             <div>
               <Label htmlFor="middleName" className="text-[#0F2854]">
-                Middle Name *
+                Middle Name
               </Label>
               <Input
                 id="middleName"
                 type="text"
-                placeholder="Middle Name"
+                placeholder="Middle Name (Optional)"
                 value={formData.middleName}
-                onChange={(e) => handleInputChange("middleName", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("middleName", e.target.value)
+                }
                 disabled={isLoading}
                 className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
               />
@@ -166,9 +243,11 @@ export default function CreateAccountPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   disabled={isLoading}
                   className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
                 />
@@ -178,9 +257,16 @@ export default function CreateAccountPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4988C4] hover:text-[#1C4D8D]"
                   disabled={isLoading}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Must contain uppercase, lowercase, and number
+              </p>
             </div>
           </div>
 
@@ -195,7 +281,9 @@ export default function CreateAccountPage() {
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Re-enter your password"
                 value={formData.confirmPassword}
-                onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("confirmPassword", e.target.value)
+                }
                 disabled={isLoading}
                 className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
               />
@@ -205,7 +293,11 @@ export default function CreateAccountPage() {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4988C4] hover:text-[#1C4D8D]"
                 disabled={isLoading}
               >
-                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showConfirmPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
@@ -225,28 +317,46 @@ export default function CreateAccountPage() {
             >
               {/* Email Option */}
               <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-                <RadioGroupItem value="email" id="email-notification" className="border-[#1C4D8D]" />
-                <Label htmlFor="email-notification" className="flex items-center gap-3 cursor-pointer flex-1">
+                <RadioGroupItem
+                  value="email"
+                  id="email-notification"
+                  className="border-[#1C4D8D]"
+                />
+                <Label
+                  htmlFor="email-notification"
+                  className="flex items-center gap-3 cursor-pointer flex-1"
+                >
                   <div className="p-2 bg-[#BDE8F5] rounded-lg">
                     <Mail className="w-5 h-5 text-[#1C4D8D]" />
                   </div>
                   <div>
-                    <p className="text-[#0F2854]">Gmail</p>
-                    <p className="text-sm text-muted-foreground">Receive notifications via email</p>
+                    <p className="text-[#0F2854]">Email</p>
+                    <p className="text-sm text-muted-foreground">
+                      Receive notifications via email
+                    </p>
                   </div>
                 </Label>
               </div>
 
               {/* Phone Option */}
               <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-                <RadioGroupItem value="phone" id="phone-notification" className="border-[#1C4D8D]" />
-                <Label htmlFor="phone-notification" className="flex items-center gap-3 cursor-pointer flex-1">
+                <RadioGroupItem
+                  value="phone"
+                  id="phone-notification"
+                  className="border-[#1C4D8D]"
+                />
+                <Label
+                  htmlFor="phone-notification"
+                  className="flex items-center gap-3 cursor-pointer flex-1"
+                >
                   <div className="p-2 bg-[#BDE8F5] rounded-lg">
                     <Smartphone className="w-5 h-5 text-[#1C4D8D]" />
                   </div>
                   <div>
                     <p className="text-[#0F2854]">Phone Number</p>
-                    <p className="text-sm text-muted-foreground">Receive notifications via SMS</p>
+                    <p className="text-sm text-muted-foreground">
+                      Receive notifications via SMS
+                    </p>
                   </div>
                 </Label>
               </div>
@@ -258,12 +368,12 @@ export default function CreateAccountPage() {
             {notificationMethod === "email" ? (
               <>
                 <Label htmlFor="notificationEmail" className="text-[#0F2854]">
-                  Gmail Address *
+                  Email Address *
                 </Label>
                 <Input
                   id="notificationEmail"
                   type="email"
-                  placeholder="your.gmail@gmail.com"
+                  placeholder="your.email@example.com"
                   value={notificationContact}
                   onChange={(e) => setNotificationContact(e.target.value)}
                   disabled={isLoading}
@@ -288,10 +398,28 @@ export default function CreateAccountPage() {
             )}
           </div>
 
+          {/* Terms & Conditions */}
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="terms"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              disabled={isLoading}
+              className="w-4 h-4 mt-1 rounded border-[#4988C4]/30 text-[#1C4D8D] focus:ring-[#1C4D8D]"
+            />
+            <Label
+              htmlFor="terms"
+              className="text-xs text-[#1C4D8D] cursor-pointer"
+            >
+              I agree to the Terms of Service and Privacy Policy
+            </Label>
+          </div>
+
           <Button
             type="submit"
+            disabled={isLoading || !agreedToTerms}
             className="w-full bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] text-white shadow-lg"
-            disabled={isLoading}
           >
             {isLoading ? "Creating Account..." : "Create Account"}
           </Button>
