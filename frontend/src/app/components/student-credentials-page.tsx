@@ -6,20 +6,21 @@ import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Label } from "@/app/components/ui/label";
 import { PaymentReceiptDialog } from "@/app/components/payment-receipt-dialog";
-import { 
-  User, 
-  GraduationCap, 
-  Phone, 
-  Mail, 
-  Calendar, 
-  DollarSign, 
+import { useNavigate } from "react-router-dom"; // ← Add this
+import {
+  User,
+  GraduationCap,
+  Phone,
+  Mail,
+  Calendar,
+  DollarSign,
   FileText,
   CheckCircle2,
   AlertCircle,
   Download,
   Printer,
   Receipt,
-  Search
+  Search,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,7 +37,7 @@ interface StudentCredential {
   parentPhone: string;
   enrollmentDate: string;
   feeAmount: number;
-  feeStatus: 'paid' | 'pending' | 'overdue';
+  feeStatus: "paid" | "pending" | "overdue";
   dueDate: string;
   paymentHistory: {
     id: string;
@@ -49,33 +50,33 @@ interface StudentCredential {
 }
 
 const sampleStudent: StudentCredential = {
-  studentId: 'STU-2024-001',
-  name: 'Emma Johnson',
-  grade: 'Grade 10',
-  dateOfBirth: '2010-05-15',
-  email: 'emma.johnson@school.edu',
-  phone: '+1 (555) 111-2222',
-  parentName: 'Michael Johnson',
-  parentEmail: 'michael.j@email.com',
-  parentPhone: '+1 (555) 123-4567',
-  enrollmentDate: '2024-09-01',
+  studentId: "STU-2024-001",
+  name: "Emma Johnson",
+  grade: "Grade 10",
+  dateOfBirth: "2010-05-15",
+  email: "emma.johnson@school.edu",
+  phone: "+1 (555) 111-2222",
+  parentName: "Michael Johnson",
+  parentEmail: "michael.j@email.com",
+  parentPhone: "+1 (555) 123-4567",
+  enrollmentDate: "2024-09-01",
   feeAmount: 5000,
-  feeStatus: 'pending',
-  dueDate: '2026-02-15',
+  feeStatus: "pending",
+  dueDate: "2026-02-15",
   paymentHistory: [
     {
-      id: 'PAY-001',
-      date: '2025-12-15',
+      id: "PAY-001",
+      date: "2025-12-15",
       amount: 5000,
-      method: 'Bank Transfer',
-      status: 'Completed'
+      method: "Bank Transfer",
+      status: "Completed",
     },
     {
-      id: 'PAY-002',
-      date: '2025-09-10',
+      id: "PAY-002",
+      date: "2025-09-10",
       amount: 5000,
-      method: 'Cash',
-      status: 'Completed'
+      method: "Cash",
+      status: "Completed",
     },
   ],
   manualPaymentNotes: `Manual Payment Instructions:
@@ -97,32 +98,32 @@ const sampleStudent: StudentCredential = {
    Submit to the Finance Office
 
 Please ensure to keep all payment receipts for your records.
-For any payment-related queries, contact: finance@school.edu or call +1 (555) 999-8888`
+For any payment-related queries, contact: finance@school.edu or call +1 (555) 999-8888`,
 };
 
 const allStudents: StudentCredential[] = [
   sampleStudent,
   {
-    studentId: 'STU-2024-002',
-    name: 'Liam Smith',
-    grade: 'Grade 9',
-    dateOfBirth: '2011-03-22',
-    email: 'liam.smith@school.edu',
-    phone: '+1 (555) 222-3333',
-    parentName: 'Sarah Smith',
-    parentEmail: 'sarah.smith@email.com',
-    parentPhone: '+1 (555) 234-5678',
-    enrollmentDate: '2024-09-01',
+    studentId: "STU-2024-002",
+    name: "Liam Smith",
+    grade: "Grade 9",
+    dateOfBirth: "2011-03-22",
+    email: "liam.smith@school.edu",
+    phone: "+1 (555) 222-3333",
+    parentName: "Sarah Smith",
+    parentEmail: "sarah.smith@email.com",
+    parentPhone: "+1 (555) 234-5678",
+    enrollmentDate: "2024-09-01",
     feeAmount: 5000,
-    feeStatus: 'pending',
-    dueDate: '2026-01-20',
+    feeStatus: "pending",
+    dueDate: "2026-01-20",
     paymentHistory: [
       {
-        id: 'PAY-003',
-        date: '2025-11-20',
+        id: "PAY-003",
+        date: "2025-11-20",
         amount: 5000,
-        method: 'Credit Card',
-        status: 'Completed'
+        method: "Credit Card",
+        status: "Completed",
       },
     ],
     manualPaymentNotes: `Manual Payment Instructions:
@@ -144,29 +145,29 @@ const allStudents: StudentCredential[] = [
    Submit to the Finance Office
 
 Please ensure to keep all payment receipts for your records.
-For any payment-related queries, contact: finance@school.edu or call +1 (555) 999-8888`
+For any payment-related queries, contact: finance@school.edu or call +1 (555) 999-8888`,
   },
   {
-    studentId: 'STU-2024-003',
-    name: 'Olivia Williams',
-    grade: 'Grade 11',
-    dateOfBirth: '2009-07-18',
-    email: 'olivia.williams@school.edu',
-    phone: '+1 (555) 333-4444',
-    parentName: 'David Williams',
-    parentEmail: 'david.w@email.com',
-    parentPhone: '+1 (555) 345-6789',
-    enrollmentDate: '2023-09-01',
+    studentId: "STU-2024-003",
+    name: "Olivia Williams",
+    grade: "Grade 11",
+    dateOfBirth: "2009-07-18",
+    email: "olivia.williams@school.edu",
+    phone: "+1 (555) 333-4444",
+    parentName: "David Williams",
+    parentEmail: "david.w@email.com",
+    parentPhone: "+1 (555) 345-6789",
+    enrollmentDate: "2023-09-01",
     feeAmount: 5500,
-    feeStatus: 'overdue',
-    dueDate: '2026-01-10',
+    feeStatus: "overdue",
+    dueDate: "2026-01-10",
     paymentHistory: [
       {
-        id: 'PAY-004',
-        date: '2025-10-15',
+        id: "PAY-004",
+        date: "2025-10-15",
         amount: 5500,
-        method: 'Bank Transfer',
-        status: 'Completed'
+        method: "Bank Transfer",
+        status: "Completed",
       },
     ],
     manualPaymentNotes: `Manual Payment Instructions:
@@ -188,14 +189,15 @@ For any payment-related queries, contact: finance@school.edu or call +1 (555) 99
    Submit to the Finance Office
 
 Please ensure to keep all payment receipts for your records.
-For any payment-related queries, contact: finance@school.edu or call +1 (555) 999-8888`
+For any payment-related queries, contact: finance@school.edu or call +1 (555) 999-8888`,
   },
 ];
 
 export function StudentCredentialsPage() {
+  const navigate = useNavigate();
   const [student, setStudent] = useState<StudentCredential>(sampleStudent);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [additionalNotes, setAdditionalNotes] = useState("");
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<{
     amount: number;
@@ -205,51 +207,75 @@ export function StudentCredentialsPage() {
 
   const handleSearch = () => {
     if (!searchQuery.trim()) {
-      toast.error('Please enter a student ID or name');
+      toast.error("Please enter a student ID or name");
       return;
     }
 
     const foundStudent = allStudents.find(
-      s => s.studentId.toLowerCase() === searchQuery.toLowerCase() ||
-           s.name.toLowerCase().includes(searchQuery.toLowerCase())
+      (s) =>
+        s.studentId.toLowerCase() === searchQuery.toLowerCase() ||
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     if (foundStudent) {
       setStudent(foundStudent);
       toast.success(`Student found: ${foundStudent.name}`);
     } else {
-      toast.error('Student not found');
+      toast.error("Student not found");
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'paid':
-        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Paid</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600"><AlertCircle className="w-3 h-3 mr-1" />Pending</Badge>;
-      case 'overdue':
-        return <Badge className="bg-red-500 hover:bg-red-600"><AlertCircle className="w-3 h-3 mr-1" />Overdue</Badge>;
+      case "paid":
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Paid
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case "overdue":
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Overdue
+          </Badge>
+        );
       default:
         return null;
     }
   };
 
   const handleDownloadCredentials = () => {
-    toast.success('Student credentials downloaded successfully');
+    toast.success("Student credentials downloaded successfully");
   };
 
   const handlePrint = () => {
     window.print();
-    toast.success('Print dialog opened');
+    toast.success("Print dialog opened");
   };
 
-  const handleSendReceipt = (paymentAmount: number, paymentDate: string, paymentMethod: string) => {
-    setSelectedPayment({ amount: paymentAmount, date: paymentDate, method: paymentMethod });
+  const handleSendReceipt = (
+    paymentAmount: number,
+    paymentDate: string,
+    paymentMethod: string,
+  ) => {
+    setSelectedPayment({
+      amount: paymentAmount,
+      date: paymentDate,
+      method: paymentMethod,
+    });
     setShowReceiptDialog(true);
   };
 
-  const handleReceiptSent = (method: 'email' | 'sms', contact: string) => {
+  const handleReceiptSent = (method: "email" | "sms", contact: string) => {
     toast.success(`Receipt sent via ${method} to ${contact}`);
   };
 
@@ -261,8 +287,8 @@ export function StudentCredentialsPage() {
         studentName={student.name}
         studentId={student.studentId}
         paymentAmount={selectedPayment?.amount || 0}
-        paymentDate={selectedPayment?.date || ''}
-        paymentMethod={selectedPayment?.method || ''}
+        paymentDate={selectedPayment?.date || ""}
+        paymentMethod={selectedPayment?.method || ""}
         parentEmail={student.parentEmail}
         parentPhone={student.parentPhone}
         onReceiptSent={handleReceiptSent}
@@ -278,25 +304,19 @@ export function StudentCredentialsPage() {
               </div>
               <div>
                 <h1 className="text-3xl text-white">Student Credentials</h1>
-                <p className="text-[#BDE8F5]">Personal Information & Payment Details</p>
+                <p className="text-[#BDE8F5]">
+                  Personal Information & Payment Details
+                </p>
               </div>
             </div>
+            {/* Buttons */}
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-                onClick={handlePrint}
+                onClick={() => navigate("/admin")}
               >
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </Button>
-              <Button 
-                variant="outline" 
-                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-                onClick={handleDownloadCredentials}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download
+                ← Back
               </Button>
             </div>
           </div>
@@ -309,12 +329,12 @@ export function StudentCredentialsPage() {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   placeholder="Search by Student ID or Name (e.g., STU-2024-001 or Emma Johnson)"
                   className="pl-10 border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
                 />
               </div>
-              <Button 
+              <Button
                 onClick={handleSearch}
                 className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
               >
@@ -323,7 +343,7 @@ export function StudentCredentialsPage() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Available students: {allStudents.map(s => s.name).join(', ')}
+              Available students: {allStudents.map((s) => s.name).join(", ")}
             </p>
           </Card>
         </div>
@@ -338,7 +358,7 @@ export function StudentCredentialsPage() {
                 <h2 className="text-xl text-[#0F2854]">Student Information</h2>
               </div>
               <Separator className="mb-4" />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-[#4988C4] text-xs">Student ID</Label>
@@ -353,7 +373,9 @@ export function StudentCredentialsPage() {
                   <p className="text-[#0F2854]">{student.grade}</p>
                 </div>
                 <div>
-                  <Label className="text-[#4988C4] text-xs">Date of Birth</Label>
+                  <Label className="text-[#4988C4] text-xs">
+                    Date of Birth
+                  </Label>
                   <p className="text-[#0F2854]">{student.dateOfBirth}</p>
                 </div>
                 <div>
@@ -371,7 +393,9 @@ export function StudentCredentialsPage() {
                   </p>
                 </div>
                 <div>
-                  <Label className="text-[#4988C4] text-xs">Enrollment Date</Label>
+                  <Label className="text-[#4988C4] text-xs">
+                    Enrollment Date
+                  </Label>
                   <p className="text-[#0F2854] flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-[#4988C4]" />
                     {student.enrollmentDate}
@@ -384,10 +408,12 @@ export function StudentCredentialsPage() {
             <Card className="p-6 bg-white/95 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-4">
                 <User className="w-5 h-5 text-[#1C4D8D]" />
-                <h2 className="text-xl text-[#0F2854]">Parent/Guardian Information</h2>
+                <h2 className="text-xl text-[#0F2854]">
+                  Parent/Guardian Information
+                </h2>
               </div>
               <Separator className="mb-4" />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-[#4988C4] text-xs">Parent Name</Label>
@@ -414,10 +440,12 @@ export function StudentCredentialsPage() {
             <Card className="p-6 bg-gradient-to-br from-[#BDE8F5]/20 to-white/95 backdrop-blur-sm border-2 border-[#4988C4]">
               <div className="flex items-center gap-2 mb-4">
                 <FileText className="w-5 h-5 text-[#1C4D8D]" />
-                <h2 className="text-xl text-[#0F2854]">Manual Payment Instructions</h2>
+                <h2 className="text-xl text-[#0F2854]">
+                  Manual Payment Instructions
+                </h2>
               </div>
               <Separator className="mb-4" />
-              
+
               <div className="bg-white/60 p-4 rounded-lg mb-4">
                 <pre className="whitespace-pre-wrap text-sm text-[#0F2854] font-sans">
                   {student.manualPaymentNotes}
@@ -425,7 +453,9 @@ export function StudentCredentialsPage() {
               </div>
 
               <div>
-                <Label htmlFor="additionalNotes" className="text-[#0F2854]">Additional Notes</Label>
+                <Label htmlFor="additionalNotes" className="text-[#0F2854]">
+                  Additional Notes
+                </Label>
                 <Textarea
                   id="additionalNotes"
                   placeholder="Add any additional payment notes or special instructions..."
@@ -447,11 +477,13 @@ export function StudentCredentialsPage() {
                 <h2 className="text-xl text-[#0F2854]">Current Fee Status</h2>
               </div>
               <Separator className="mb-4" />
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <Label className="text-[#4988C4] text-xs">Fee Amount</Label>
-                  <p className="text-2xl text-[#0F2854]">₱{student.feeAmount.toLocaleString()}</p>
+                  <p className="text-2xl text-[#0F2854]">
+                    ₱{student.feeAmount.toLocaleString()}
+                  </p>
                 </div>
                 <div className="flex justify-between items-center">
                   <Label className="text-[#4988C4] text-xs">Status</Label>
@@ -463,11 +495,12 @@ export function StudentCredentialsPage() {
                 </div>
               </div>
 
-              {student.feeStatus !== 'paid' && (
+              {student.feeStatus !== "paid" && (
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-sm text-yellow-800">
                     <AlertCircle className="w-4 h-4 inline mr-1" />
-                    Payment is {student.feeStatus}. Please submit payment before the due date.
+                    Payment is {student.feeStatus}. Please submit payment before
+                    the due date.
                   </p>
                 </div>
               )}
@@ -480,16 +513,18 @@ export function StudentCredentialsPage() {
                 <h2 className="text-xl text-[#0F2854]">Payment History</h2>
               </div>
               <Separator className="mb-4" />
-              
+
               <div className="space-y-3">
                 {student.paymentHistory.map((payment) => (
-                  <div 
-                    key={payment.id} 
+                  <div
+                    key={payment.id}
                     className="p-3 bg-gradient-to-r from-[#BDE8F5]/20 to-transparent rounded-lg border border-[#BDE8F5]"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="text-sm text-[#0F2854]">{payment.method}</p>
+                        <p className="text-sm text-[#0F2854]">
+                          {payment.method}
+                        </p>
                         <p className="text-xs text-[#4988C4]">{payment.date}</p>
                       </div>
                       <Badge className="bg-green-500">
@@ -497,13 +532,23 @@ export function StudentCredentialsPage() {
                         {payment.status}
                       </Badge>
                     </div>
-                    <p className="text-lg text-[#1C4D8D] mb-2">₱{payment.amount.toLocaleString()}</p>
+                    <p className="text-lg text-[#1C4D8D] mb-2">
+                      ₱{payment.amount.toLocaleString()}
+                    </p>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">ID: {payment.id}</p>
+                      <p className="text-xs text-muted-foreground">
+                        ID: {payment.id}
+                      </p>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleSendReceipt(payment.amount, payment.date, payment.method)}
+                        onClick={() =>
+                          handleSendReceipt(
+                            payment.amount,
+                            payment.date,
+                            payment.method,
+                          )
+                        }
                         className="text-[#1C4D8D] hover:text-[#0F2854] hover:bg-[#BDE8F5]/20"
                       >
                         <Receipt className="w-3 h-3 mr-1" />
@@ -518,7 +563,10 @@ export function StudentCredentialsPage() {
                 <div className="flex justify-between items-center">
                   <Label className="text-[#4988C4]">Total Paid</Label>
                   <p className="text-xl text-green-600">
-                    ₱{student.paymentHistory.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                    ₱
+                    {student.paymentHistory
+                      .reduce((sum, p) => sum + p.amount, 0)
+                      .toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -528,7 +576,7 @@ export function StudentCredentialsPage() {
             <Card className="p-6 bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] text-white">
               <h3 className="mb-3">Need Help?</h3>
               <p className="text-sm text-[#BDE8F5] mb-4">
-                Contact the finance office for any payment-related questions.
+                Contact the school office for any payment-related questions.
               </p>
               <div className="space-y-2 text-sm">
                 <p className="flex items-center gap-2">
@@ -537,7 +585,7 @@ export function StudentCredentialsPage() {
                 </p>
                 <p className="flex items-center gap-2">
                   <Phone className="w-4 h-4" />
-                  +1 (555) 999-8888
+                  +63 917 1234567
                 </p>
               </div>
             </Card>

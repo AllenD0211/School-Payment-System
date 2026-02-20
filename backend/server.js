@@ -1,13 +1,17 @@
 require("dotenv").config();
 const express = require("express");
-const connectDB = require("./config/db");
+// const connectDB = require("./config/db");
 const cors = require("cors");
 const morgan = require("morgan");
 const authRoutes = require("./routes/authRoutes");
+const emailRoutes = require("./routes/email");
 
 const PORT = process.env.PORT || 5000;
 
 const app = express();
+
+// Email
+app.use("/api", emailRoutes);
 
 // Middleware
 app.use(cors());

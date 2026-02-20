@@ -12,7 +12,9 @@ export default function CreateAccountPage() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    fullName: "",
+    firstName: "",
+    middleName: "",
+    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -28,7 +30,7 @@ export default function CreateAccountPage() {
     e.preventDefault();
 
     // Validation
-    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (!formData.firstName || !formData.middleName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -80,41 +82,67 @@ export default function CreateAccountPage() {
 
       {/* Create Account Form */}
       <Card className="w-full max-w-2xl p-8 shadow-2xl relative z-10 bg-white/95 backdrop-blur-sm">
-        <button
-          onClick={() => navigate("/login")}
-          className="flex items-center gap-2 text-[#1C4D8D] hover:text-[#0F2854] mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Login
-        </button>
+       
 
         <div className="flex flex-col items-center mb-8">
           <div className="p-3 bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] rounded-xl mb-4 shadow-lg">
             <GraduationCap className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-3xl text-center mb-2 text-[#0F2854]">Create Account</h1>
-          <p className="text-muted-foreground text-center">Join the Student Information System</p>
+          <p className="text-muted-foreground text-center">Join the Student Fee Management System</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Full Name */}
-          <div>
-            <Label htmlFor="fullName" className="text-[#0F2854]">
-              Full Name *
-            </Label>
-            <Input
-              id="fullName"
-              type="text"
-              placeholder="Enter your full name"
-              value={formData.fullName}
-              onChange={(e) => handleInputChange("fullName", e.target.value)}
-              disabled={isLoading}
-              className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-            />
+          {/* Name Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="firstName" className="text-[#0F2854]">
+                First Name *
+              </Label>
+              <Input
+                id="firstName"
+                type="text"
+                placeholder="First Name"
+                value={formData.firstName}
+                onChange={(e) => handleInputChange("firstName", e.target.value)}
+                disabled={isLoading}
+                className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="middleName" className="text-[#0F2854]">
+                Middle Name *
+              </Label>
+              <Input
+                id="middleName"
+                type="text"
+                placeholder="Middle Name"
+                value={formData.middleName}
+                onChange={(e) => handleInputChange("middleName", e.target.value)}
+                disabled={isLoading}
+                className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="lastName" className="text-[#0F2854]">
+                Last Name (Surname) *
+              </Label>
+              <Input
+                id="lastName"
+                type="text"
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChange={(e) => handleInputChange("lastName", e.target.value)}
+                disabled={isLoading}
+                className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+              />
+            </div>
           </div>
 
+          {/* Email & Password */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Email */}
             <div>
               <Label htmlFor="email" className="text-[#0F2854]">
                 Email Address *
@@ -130,7 +158,6 @@ export default function CreateAccountPage() {
               />
             </div>
 
-            {/* Password */}
             <div>
               <Label htmlFor="password" className="text-[#0F2854]">
                 Password *
@@ -178,11 +205,7 @@ export default function CreateAccountPage() {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4988C4] hover:text-[#1C4D8D]"
                 disabled={isLoading}
               >
-                {showConfirmPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -200,6 +223,7 @@ export default function CreateAccountPage() {
               }}
               className="space-y-3"
             >
+              {/* Email Option */}
               <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
                 <RadioGroupItem value="email" id="email-notification" className="border-[#1C4D8D]" />
                 <Label htmlFor="email-notification" className="flex items-center gap-3 cursor-pointer flex-1">
@@ -213,6 +237,7 @@ export default function CreateAccountPage() {
                 </Label>
               </div>
 
+              {/* Phone Option */}
               <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
                 <RadioGroupItem value="phone" id="phone-notification" className="border-[#1C4D8D]" />
                 <Label htmlFor="phone-notification" className="flex items-center gap-3 cursor-pointer flex-1">
@@ -253,7 +278,7 @@ export default function CreateAccountPage() {
                 <Input
                   id="notificationPhone"
                   type="tel"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="+63 912 345 6789"
                   value={notificationContact}
                   onChange={(e) => setNotificationContact(e.target.value)}
                   disabled={isLoading}

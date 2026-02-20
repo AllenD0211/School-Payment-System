@@ -69,20 +69,25 @@ export function StudentTable({
     });
   };
 
+  // Unified input handler
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [id]: type === 'number' ? value : value, // keep feeAmount as string to allow continuous typing
+    }));
+  };
+
   const handleAddStudent = () => {
-    if (!formData.name || !formData.grade || !formData.parentName || !formData.parentContact || !formData.feeAmount || !formData.dueDate) {
+    const { name, grade, parentName, parentContact, feeAmount, dueDate, feeStatus } = formData;
+    if (!name || !grade || !parentName || !parentContact || !feeAmount || !dueDate) {
       toast.error('Please fill in all fields');
       return;
     }
 
     onAddStudent({
-      name: formData.name,
-      grade: formData.grade,
-      parentName: formData.parentName,
-      parentContact: formData.parentContact,
-      feeAmount: parseFloat(formData.feeAmount),
-      feeStatus: formData.feeStatus,
-      dueDate: formData.dueDate,
+      ...formData,
+      feeAmount: parseFloat(feeAmount),
     });
 
     resetForm();
@@ -106,25 +111,20 @@ export function StudentTable({
 
   const handleEditStudent = () => {
     if (!editingStudent) return;
-
-    if (!formData.name || !formData.grade || !formData.parentName || !formData.parentContact || !formData.feeAmount || !formData.dueDate) {
+    const { name, grade, parentName, parentContact, feeAmount, dueDate, feeStatus } = formData;
+    if (!name || !grade || !parentName || !parentContact || !feeAmount || !dueDate) {
       toast.error('Please fill in all fields');
       return;
     }
 
     onEditStudent(editingStudent.id, {
-      name: formData.name,
-      grade: formData.grade,
-      parentName: formData.parentName,
-      parentContact: formData.parentContact,
-      feeAmount: parseFloat(formData.feeAmount),
-      feeStatus: formData.feeStatus,
-      dueDate: formData.dueDate,
+      ...formData,
+      feeAmount: parseFloat(feeAmount),
     });
 
     resetForm();
-    setIsEditDialogOpen(false);
     setEditingStudent(null);
+    setIsEditDialogOpen(false);
     toast.success('Student updated successfully');
   };
 
@@ -148,71 +148,36 @@ export function StudentTable({
     }
   };
 
+  // -------------------- Move Form Outside Dialog --------------------
   const StudentForm = () => (
     <div className="space-y-4">
       <div>
         <Label htmlFor="name">Student Name</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Enter student name"
-        />
+        <Input id="name" value={formData.name} onChange={handleInputChange} placeholder="Enter student name" />
       </div>
       <div>
         <Label htmlFor="grade">Grade</Label>
-        <Input
-          id="grade"
-          value={formData.grade}
-          onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-          placeholder="e.g., Grade 10"
-        />
+        <Input id="grade" value={formData.grade} onChange={handleInputChange} placeholder="e.g., Grade 10" />
       </div>
       <div>
         <Label htmlFor="parentName">Parent Name</Label>
-        <Input
-          id="parentName"
-          value={formData.parentName}
-          onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
-          placeholder="Enter parent name"
-        />
+        <Input id="parentName" value={formData.parentName} onChange={handleInputChange} placeholder="Enter parent name" />
       </div>
       <div>
         <Label htmlFor="parentContact">Parent Contact</Label>
-        <Input
-          id="parentContact"
-          value={formData.parentContact}
-          onChange={(e) => setFormData({ ...formData, parentContact: e.target.value })}
-          placeholder="e.g., +1 (555) 123-4567"
-        />
+        <Input id="parentContact" value={formData.parentContact} onChange={handleInputChange} placeholder="e.g., +1 (555) 123-4567" />
       </div>
       <div>
         <Label htmlFor="feeAmount">Fee Amount (₱)</Label>
-        <Input
-          id="feeAmount"
-          type="number"
-          value={formData.feeAmount}
-          onChange={(e) => setFormData({ ...formData, feeAmount: e.target.value })}
-          placeholder="Enter fee amount"
-        />
+        <Input id="feeAmount" type="number" value={formData.feeAmount} onChange={handleInputChange} placeholder="Enter fee amount" />
       </div>
       <div>
         <Label htmlFor="dueDate">Due Date</Label>
-        <Input
-          id="dueDate"
-          type="date"
-          value={formData.dueDate}
-          onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-        />
+        <Input id="dueDate" type="date" value={formData.dueDate} onChange={handleInputChange} />
       </div>
       <div>
         <Label htmlFor="feeStatus">Fee Status</Label>
-        <select
-          id="feeStatus"
-          value={formData.feeStatus}
-          onChange={(e) => setFormData({ ...formData, feeStatus: e.target.value as 'paid' | 'pending' | 'overdue' })}
-          className="w-full p-2 border rounded-md"
-        >
+        <select id="feeStatus" value={formData.feeStatus} onChange={handleInputChange} className="w-full p-2 border rounded-md">
           <option value="pending">Pending</option>
           <option value="paid">Paid</option>
           <option value="overdue">Overdue</option>
@@ -228,8 +193,7 @@ export function StudentTable({
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Student
+              <Plus className="w-4 h-4 mr-2" /> Add Student
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -239,9 +203,7 @@ export function StudentTable({
             <StudentForm />
             <div className="flex gap-2 mt-4">
               <Button onClick={handleAddStudent} className="flex-1">Add Student</Button>
-              <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }} className="flex-1">
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }} className="flex-1">Cancel</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -255,9 +217,7 @@ export function StudentTable({
           <StudentForm />
           <div className="flex gap-2 mt-4">
             <Button onClick={handleEditStudent} className="flex-1">Save Changes</Button>
-            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingStudent(null); resetForm(); }} className="flex-1">
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingStudent(null); resetForm(); }} className="flex-1">Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -290,37 +250,18 @@ export function StudentTable({
                   <div className="flex gap-2">
                     {student.feeStatus !== 'paid' && (
                       <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onRecordPayment(student.id)}
-                        >
-                          <DollarSign className="w-4 h-4 mr-1" />
-                          Record
+                        <Button size="sm" variant="outline" onClick={() => onRecordPayment(student.id)}>
+                          <DollarSign className="w-4 h-4 mr-1" /> Record
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onNotifyParent(student.id)}
-                        >
-                          <Bell className="w-4 h-4 mr-1" />
-                          Notify
+                        <Button size="sm" variant="outline" onClick={() => onNotifyParent(student.id)}>
+                          <Bell className="w-4 h-4 mr-1" /> Notify
                         </Button>
                       </>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEditClick(student)}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => handleEditClick(student)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeleteStudent(student.id, student.name)}
-                      className="text-red-600 hover:text-red-700"
-                    >
+                    <Button size="sm" variant="outline" onClick={() => handleDeleteStudent(student.id, student.name)} className="text-red-600 hover:text-red-700">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -332,4 +273,4 @@ export function StudentTable({
       </div>
     </Card>
   );
-}
+} 

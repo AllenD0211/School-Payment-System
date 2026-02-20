@@ -232,8 +232,8 @@ export default function StudentDashboard() {
               <GraduationCap className="w-10 h-10 text-[#0F2854]" />
             </div>
             <div>
-              <h1 className="text-3xl text-white">Student Dashboard</h1>
-              <p className="text-[#BDE8F5]">Welcome, {studentData.name}</p>
+              <h1 className="text-3xl text-white">Parent Dashboard</h1>
+              <p className="text-[#BDE8F5]">Welcome, {parentData.name}</p>
             </div>
           </div>
           <Button
@@ -393,14 +393,6 @@ export default function StudentDashboard() {
                       </p>
                     </div>
                   </div>
-
-                  <Button
-                    className="w-full bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
-                    onClick={() => handlePayNow("all")}
-                  >
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Pay Outstanding Balance
-                  </Button>
                 </div>
               </Card>
 
@@ -424,16 +416,6 @@ export default function StudentDashboard() {
                       </div>
                       <p className="text-2xl text-[#1C4D8D] mb-2">₱{payment.amount.toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground mb-2">{payment.description}</p>
-                      {payment.status !== "paid" && (
-                        <Button
-                          size="sm"
-                          className="w-full bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
-                          onClick={() => handlePayNow(payment.id)}
-                        >
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Pay Now
-                        </Button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -468,14 +450,6 @@ export default function StudentDashboard() {
                             <p className="text-xs text-muted-foreground">Method: {payment.method}</p>
                             <p className="text-xs text-muted-foreground">Receipt: {payment.receiptNumber}</p>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownloadReceipt(payment.receiptNumber)}
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Receipt
-                          </Button>
                         </div>
                       </div>
                     ))}
@@ -497,13 +471,6 @@ export default function StudentDashboard() {
                           <p className="text-sm text-[#0F2854] mb-1">{payment.type}</p>
                           <p className="text-xl text-[#1C4D8D] mb-2">₱{payment.amount}</p>
                           <p className="text-xs text-muted-foreground mb-2">Due: {payment.dueDate}</p>
-                          <Button
-                            size="sm"
-                            className="w-full bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
-                            onClick={() => handlePayNow(payment.id)}
-                          >
-                            Pay Now
-                          </Button>
                         </div>
                       ))}
                   </div>
@@ -512,7 +479,7 @@ export default function StudentDashboard() {
                 <Card className="p-6 bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] text-white">
                   <h3 className="mb-3">Payment Help</h3>
                   <p className="text-sm text-[#BDE8F5] mb-4">
-                    Need assistance with payments? Contact the finance office.
+                    Need assistance with payments? Contact the School office.
                   </p>
                   <div className="space-y-2 text-sm">
                     <p className="flex items-center gap-2">
@@ -521,7 +488,7 @@ export default function StudentDashboard() {
                     </p>
                     <p className="flex items-center gap-2">
                       <Phone className="w-4 h-4" />
-                      +1 (555) 999-8888
+                      +63 917 1234567
                     </p>
                   </div>
                 </Card>
