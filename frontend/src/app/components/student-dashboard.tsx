@@ -24,7 +24,6 @@ import {
   TrendingUp,
   Eye,
   EyeOff,
-  Bell,
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -68,15 +67,6 @@ interface Event {
   location: string;
   description: string;
   type: "academic" | "sports" | "cultural" | "meeting";
-}
-
-interface Announcement {
-  id: string;
-  title: string;
-  message: string;
-  date: string;
-  priority: "high" | "normal" | "low";
-  type: "announcement" | "notice" | "alert";
 }
 
 // Student Data
@@ -173,41 +163,6 @@ const upcomingEvents: Event[] = [
     location: "Science Block",
     description: "Showcase your science projects",
     type: "academic",
-  },
-];
-
-const announcements: Announcement[] = [
-  {
-    id: "1",
-    title: "School Assembly",
-    message: "Assembly scheduled for Monday at 8:00 AM. All students must attend.",
-    date: "2026-02-20",
-    priority: "high",
-    type: "notice",
-  },
-  {
-    id: "2",
-    title: "Fee Payment Reminder",
-    message: "Please ensure all pending fees are paid by the due date to avoid penalties.",
-    date: "2026-02-15",
-    priority: "high",
-    type: "alert",
-  },
-  {
-    id: "3",
-    title: "Sports Day Participation",
-    message: "All students are encouraged to participate in the annual sports day. Register at the office.",
-    date: "2026-02-10",
-    priority: "normal",
-    type: "announcement",
-  },
-  {
-    id: "4",
-    title: "Library Hours Extended",
-    message: "The library will remain open until 6 PM during exam season.",
-    date: "2026-02-05",
-    priority: "low",
-    type: "announcement",
   },
 ];
 
@@ -497,39 +452,6 @@ export default function StudentDashboard() {
     );
   };
 
-  const getAnnouncementBadge = (type: string, priority: string) => {
-    const typeColors = {
-      announcement: "bg-blue-500",
-      notice: "bg-orange-500",
-      alert: "bg-red-500",
-    };
-
-    const priorityText = {
-      high: "High Priority",
-      normal: "Normal",
-      low: "Low",
-    };
-
-    return (
-      <div className="flex gap-2">
-        <Badge className={typeColors[type as keyof typeof typeColors]}>
-          {type.charAt(0).toUpperCase() + type.slice(1)}
-        </Badge>
-        <Badge
-          className={
-            priority === "high"
-              ? "bg-red-500"
-              : priority === "normal"
-              ? "bg-yellow-500"
-              : "bg-gray-500"
-          }
-        >
-          {priorityText[priority as keyof typeof priorityText]}
-        </Badge>
-      </div>
-    );
-  };
-
   const formatAmount = (amount: number) => {
     return hideAmounts ? "****" : `₱${amount.toLocaleString()}`;
   };
@@ -679,12 +601,6 @@ export default function StudentDashboard() {
               Events
             </TabsTrigger>
             <TabsTrigger
-              value="announcements"
-              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5] transition-all"
-            >
-              Announcements
-            </TabsTrigger>
-            <TabsTrigger
               value="profile"
               className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5] transition-all"
             >
@@ -817,34 +733,41 @@ export default function StudentDashboard() {
                 </div>
               </Card>
 
-              {/* Announcements Preview */}
+              {/* Upcoming Events Preview */}
               <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-lg transition-all lg:col-span-2">
                 <div className="flex items-center gap-2 mb-4">
-                  <Bell className="w-5 h-5 text-[#1C4D8D]" />
+                  <Calendar className="w-5 h-5 text-[#1C4D8D]" />
                   <h2 className="text-xl font-semibold text-[#0F2854]">
-                    Latest Announcements
+                    Upcoming Events
                   </h2>
                 </div>
                 <Separator className="mb-4" />
 
-                <div className="space-y-3">
-                  {announcements.slice(0, 3).map((announcement) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {upcomingEvents.slice(0, 3).map((event) => (
                     <div
-                      key={announcement.id}
-                      className="p-3 border-2 border-[#BDE8F5] rounded-lg hover:border-[#4988C4] hover:shadow-md transition-all"
+                      key={event.id}
+                      className="p-4 border-2 border-[#BDE8F5] rounded-lg hover:border-[#4988C4] hover:shadow-md transition-all"
                     >
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="flex justify-between items-start gap-2 mb-2">
                         <h3 className="text-[#0F2854] font-bold text-sm">
-                          {announcement.title}
+                          {event.title}
                         </h3>
-                        {getAnnouncementBadge(announcement.type, announcement.priority)}
+                        {getEventTypeBadge(event.type)}
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {announcement.message}
+                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                        {event.description}
                       </p>
-                      <p className="text-xs text-[#4988C4] font-medium">
-                        {announcement.date}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-xs text-[#4988C4] font-medium flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {event.date}
+                        </p>
+                        <p className="text-xs text-[#4988C4] font-medium flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {event.time}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1019,41 +942,6 @@ export default function StudentDashboard() {
                   <p className="text-muted-foreground">No upcoming events</p>
                 </div>
               )}
-            </Card>
-          </TabsContent>
-
-          {/* Announcements Tab */}
-          <TabsContent value="announcements">
-            <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-lg transition-all">
-              <div className="flex items-center gap-2 mb-4">
-                <Bell className="w-5 h-5 text-[#1C4D8D]" />
-                <h2 className="text-xl font-semibold text-[#0F2854]">
-                  All Announcements & Notices
-                </h2>
-              </div>
-              <Separator className="mb-4" />
-
-              <div className="space-y-3">
-                {announcements.map((announcement) => (
-                  <div
-                    key={announcement.id}
-                    className="p-4 border-2 border-[#BDE8F5] rounded-lg hover:border-[#4988C4] hover:shadow-md transition-all"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-[#0F2854] font-bold">
-                        {announcement.title}
-                      </h3>
-                      {getAnnouncementBadge(announcement.type, announcement.priority)}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {announcement.message}
-                    </p>
-                    <p className="text-xs text-[#4988C4] font-medium">
-                      {announcement.date}
-                    </p>
-                  </div>
-                ))}
-              </div>
             </Card>
           </TabsContent>
 

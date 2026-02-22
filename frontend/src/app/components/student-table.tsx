@@ -26,6 +26,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Separator } from "@/app/components/ui/separator";
 
+export interface EventFee {
+  id: string;
+  eventName: string;
+  amount: number;
+  dueDate: string;
+  status: 'paid' | 'pending' | 'overdue';
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -39,13 +47,15 @@ export interface Student {
   type?: string;
   parentEmail?: string;
   notificationMethod?: 'sms' | 'email';
+  eventFees?: EventFee[];
+  birthDate?: string;
 }
 
 interface StudentTableProps {
   students: Student[];
   onNotifyParent: (studentId: string, method: 'sms' | 'email') => void;
   onRecordPayment: (studentId: string) => void;
-  onAddStudent: (student: Omit<Student, 'id'>) => void;
+  onAddFee: (studentId: string, fee: Omit<Student, 'id'>) => void;
   onEditStudent: (studentId: string, student: Omit<Student, 'id'>) => void;
   onDeleteStudent: (studentId: string) => void;
 }
@@ -54,190 +64,178 @@ export function StudentTable({
   students, 
   onNotifyParent, 
   onRecordPayment,
-  onAddStudent,
+  onAddFee,
   onEditStudent,
   onDeleteStudent
 }: StudentTableProps) {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAddFeeDialogOpen, setIsAddFeeDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddNewStudentFeeDialogOpen, setIsAddNewStudentFeeDialogOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedStudentForNotify, setSelectedStudentForNotify] = useState<Student | null>(null);
   const [selectedStudentForDelete, setSelectedStudentForDelete] = useState<Student | null>(null);
   const [notificationMethod, setNotificationMethod] = useState<'sms' | 'email'>('sms');
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [customFeeType, setCustomFeeType] = useState('');
-  const [showCustomFeeInput, setShowCustomFeeInput] = useState(false);
+  const [selectedStudentForFee, setSelectedStudentForFee] = useState<Student | null>(null);
+
   const [formData, setFormData] = useState({
-    name: '',
-    grade: '',
-    parentName: '',
-    parentContact: '',
-    parentEmail: '',
     feeAmount: '',
-    feeStatus: 'pending' as 'paid' | 'pending' | 'overdue',
     dueDate: '',
+    feeStatus: 'pending' as 'paid' | 'pending' | 'overdue',
     description: '',
-    type: 'Tuition Fee',
-    notificationMethod: 'sms' as 'sms' | 'email',
   });
 
-  const defaultFeeTypes = ['Tuition Fee', 'Library Fee', 'Activity Fee'];
+  const [newStudentFeeForm, setNewStudentFeeForm] = useState({
+    studentId: '',
+    feeType: '',
+    feeAmount: '',
+    dueDate: '',
+    feeStatus: 'pending' as 'paid' | 'pending' | 'overdue',
+    description: '',
+  });
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      grade: '',
-      parentName: '',
-      parentContact: '',
-      parentEmail: '',
       feeAmount: '',
-      feeStatus: 'pending',
       dueDate: '',
+      feeStatus: 'pending',
       description: '',
-      type: 'Tuition Fee',
-      notificationMethod: 'sms',
     });
-    setCustomFeeType('');
-    setShowCustomFeeInput(false);
+    setSelectedStudentForFee(null);
   };
 
-  // Fixed input handler
+  const resetNewStudentFeeForm = () => {
+    setNewStudentFeeForm({
+      studentId: '',
+      feeType: '',
+      feeAmount: '',
+      dueDate: '',
+      feeStatus: 'pending',
+      description: '',
+    });
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target;
+    const { name, value } = e.target;
     
-    // Handle select dropdown for feeStatus and type
-    if (id === 'feeStatus') {
+    if (name === 'feeStatus') {
       setFormData((prev) => ({
         ...prev,
         feeStatus: value as 'paid' | 'pending' | 'overdue',
       }));
-    } else if (id === 'notificationMethod') {
-      setFormData((prev) => ({
-        ...prev,
-        notificationMethod: value as 'sms' | 'email',
-      }));
-    } else if (id === 'type') {
-      if (value === 'other') {
-        setShowCustomFeeInput(true);
-        setFormData((prev) => ({
-          ...prev,
-          type: customFeeType || 'Other',
-        }));
-      } else {
-        setShowCustomFeeInput(false);
-        setCustomFeeType('');
-        setFormData((prev) => ({
-          ...prev,
-          type: value,
-        }));
-      }
-    } else if (id === 'customFeeType') {
-      setCustomFeeType(value);
-      setFormData((prev) => ({
-        ...prev,
-        type: value || 'Other',
-      }));
-    } else if (id === 'feeAmount') {
-      // Allow only numbers and decimal point
-      if (value === '' || /^\d*\.?\d*$/.test(value)) {
-        setFormData((prev) => ({
-          ...prev,
-          [id]: value,
-        }));
-      }
     } else {
       setFormData((prev) => ({
         ...prev,
-        [id]: value,
+        [name]: value,
       }));
     }
   };
 
-  const handleAddStudent = () => {
-    const { name, grade, parentName, parentContact, feeAmount, dueDate } = formData;
-    if (!name || !grade || !parentName || !parentContact || !feeAmount || !dueDate) {
+  const handleNewStudentFeeInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    if (name === 'feeStatus') {
+      setNewStudentFeeForm((prev) => ({
+        ...prev,
+        feeStatus: value as 'paid' | 'pending' | 'overdue',
+      }));
+    } else {
+      setNewStudentFeeForm((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleAddFeeForNewStudent = () => {
+    const { studentId, feeType, feeAmount, dueDate } = newStudentFeeForm;
+    
+    if (!studentId.trim() || !feeType || !feeAmount || !dueDate) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    // Validate phone for SMS
-    if (formData.notificationMethod === 'sms' && !parentContact) {
-      toast.error('Phone number required for SMS notifications');
+    // Check if student ID exists in database
+    const foundStudent = students.find((student) => 
+      student.id.toLowerCase() === studentId.toLowerCase()
+    );
+
+    if (!foundStudent) {
+      toast.error(`Student ID "${studentId}" not found in database`);
       return;
     }
 
-    // Validate email for Email
-    if (formData.notificationMethod === 'email' && !formData.parentEmail) {
-      toast.error('Email required for Email notifications');
-      return;
-    }
-
-    onAddStudent({
-      ...formData,
+    // Add fee to the found student
+    onAddFee(foundStudent.id, {
+      ...foundStudent,
+      type: feeType,
       feeAmount: parseFloat(feeAmount),
+      dueDate,
+      feeStatus: newStudentFeeForm.feeStatus,
+      description: newStudentFeeForm.description,
+    });
+
+    resetNewStudentFeeForm();
+    setIsAddNewStudentFeeDialogOpen(false);
+    toast.success(`Fee added successfully for ${foundStudent.name}`);
+  };
+
+  const handleAddFee = () => {
+    if (!selectedStudentForFee) return;
+    
+    const { feeAmount, dueDate } = formData;
+    if (!feeAmount || !dueDate) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    onAddFee(selectedStudentForFee.id, {
+      ...selectedStudentForFee,
+      feeAmount: parseFloat(feeAmount),
+      dueDate,
+      feeStatus: formData.feeStatus,
+      description: formData.description,
     });
 
     resetForm();
-    setIsAddDialogOpen(false);
-    toast.success('Student added successfully');
+    setIsAddFeeDialogOpen(false);
+    toast.success('Fee added successfully');
   };
 
   const handleEditClick = (student: Student) => {
     setEditingStudent(student);
-    const isCustomType = !defaultFeeTypes.includes(student.type || 'Tuition Fee');
-    if (isCustomType) {
-      setShowCustomFeeInput(true);
-      setCustomFeeType(student.type || '');
-    }
     setFormData({
-      name: student.name,
-      grade: student.grade,
-      parentName: student.parentName,
-      parentContact: student.parentContact,
-      parentEmail: student.parentEmail || '',
       feeAmount: student.feeAmount.toString(),
-      feeStatus: student.feeStatus,
       dueDate: student.dueDate,
+      feeStatus: student.feeStatus,
       description: student.description || '',
-      type: student.type || 'Tuition Fee',
-      notificationMethod: student.notificationMethod || 'sms',
     });
     setIsEditDialogOpen(true);
   };
 
   const handleEditStudent = () => {
     if (!editingStudent) return;
-    const { name, grade, parentName, parentContact, feeAmount, dueDate } = formData;
-    if (!name || !grade || !parentName || !parentContact || !feeAmount || !dueDate) {
+    const { feeAmount, dueDate } = formData;
+    if (!feeAmount || !dueDate) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    // Validate phone for SMS
-    if (formData.notificationMethod === 'sms' && !parentContact) {
-      toast.error('Phone number required for SMS notifications');
-      return;
-    }
-
-    // Validate email for Email
-    if (formData.notificationMethod === 'email' && !formData.parentEmail) {
-      toast.error('Email required for Email notifications');
-      return;
-    }
-
     onEditStudent(editingStudent.id, {
-      ...formData,
+      ...editingStudent,
       feeAmount: parseFloat(feeAmount),
+      dueDate,
+      feeStatus: formData.feeStatus,
+      description: formData.description,
     });
 
     resetForm();
     setEditingStudent(null);
     setIsEditDialogOpen(false);
-    toast.success('Student updated successfully');
+    toast.success('Fee updated successfully');
   };
 
-  // ==================== Delete Handler ====================
   const handleDeleteClick = (student: Student) => {
     setSelectedStudentForDelete(student);
     setDeleteDialogOpen(true);
@@ -252,7 +250,6 @@ export function StudentTable({
     setSelectedStudentForDelete(null);
   };
 
-  // ==================== Notification Handler ====================
   const handleNotifyClick = (student: Student) => {
     setSelectedStudentForNotify(student);
     setNotificationMethod(student.notificationMethod || 'sms');
@@ -262,7 +259,6 @@ export function StudentTable({
   const handleSendNotification = () => {
     if (!selectedStudentForNotify) return;
 
-    // Validate contact info based on selected method
     if (notificationMethod === 'sms') {
       if (!selectedStudentForNotify.parentContact) {
         toast.error('Phone number not available for this parent');
@@ -298,161 +294,25 @@ export function StudentTable({
     }
   };
 
-  // ==================== Student Form ====================
-  const StudentForm = ({ isEdit = false }) => (
+  // ==================== Fee Form ====================
+  const FeeForm = ({ isEdit = false }: { isEdit?: boolean }) => (
     <div className="space-y-5">
-      {/* Student Information Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <GraduationCap className="w-5 h-5 text-[#1C4D8D]" />
-          <h3 className="font-semibold text-[#0F2854]">Student Information</h3>
-        </div>
-        <Separator />
-        
-        <div>
-          <Label htmlFor="name" className="text-[#0F2854] font-semibold">Student Name *</Label>
-          <Input 
-            id="name" 
-            value={formData.name} 
-            onChange={handleInputChange} 
-            placeholder="Enter student name"
-            type="text"
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <Label htmlFor="grade" className="text-[#0F2854] font-semibold">Grade *</Label>
-          <Input 
-            id="grade" 
-            value={formData.grade} 
-            onChange={handleInputChange} 
-            placeholder="e.g., Grade 10"
-            type="text"
-            className="mt-1.5"
-          />
-        </div>
-      </div>
-
-      {/* Parent Information Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-[#1C4D8D]" />
-          <h3 className="font-semibold text-[#0F2854]">Parent Information</h3>
-        </div>
-        <Separator />
-        
-        <div>
-          <Label htmlFor="parentName" className="text-[#0F2854] font-semibold">Parent Name *</Label>
-          <Input 
-            id="parentName" 
-            value={formData.parentName} 
-            onChange={handleInputChange} 
-            placeholder="Enter parent name"
-            type="text"
-            className="mt-1.5"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="notificationMethod" className="text-[#0F2854] font-semibold">Preferred Notification Method *</Label>
-          <select 
-            id="notificationMethod" 
-            value={formData.notificationMethod} 
-            onChange={handleInputChange} 
-            className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
-          >
-            <option value="sms">SMS Only</option>
-            <option value="email">Email Only</option>
-          </select>
-        </div>
-
-        {/* Show Phone or Email based on notification method */}
-        {formData.notificationMethod === 'sms' && (
-          <div>
-            <Label htmlFor="parentContact" className="text-[#0F2854] font-semibold">Parent Phone (SMS) *</Label>
-            <Input 
-              id="parentContact" 
-              value={formData.parentContact} 
-              onChange={handleInputChange} 
-              placeholder="e.g., +1 (555) 123-4567"
-              type="tel"
-              className="mt-1.5"
-            />
-          </div>
-        )}
-
-        {formData.notificationMethod === 'email' && (
-          <div>
-            <Label htmlFor="parentEmail" className="text-[#0F2854] font-semibold">Parent Email *</Label>
-            <Input 
-              id="parentEmail" 
-              type="email"
-              value={formData.parentEmail} 
-              onChange={handleInputChange} 
-              placeholder="e.g., parent@email.com"
-              className="mt-1.5"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Fee Information Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <DollarSign className="w-5 h-5 text-[#1C4D8D]" />
           <h3 className="font-semibold text-[#0F2854]">Fee Information</h3>
         </div>
         <Separator />
-        
-        <div>
-          <Label htmlFor="type" className="text-[#0F2854] font-semibold">Fee Type</Label>
-          <div className="space-y-2 mt-1.5">
-            <select 
-              id="type" 
-              value={showCustomFeeInput ? 'other' : formData.type} 
-              onChange={handleInputChange} 
-              className="w-full p-2.5 border rounded-md text-sm border-gray-300 focus:border-[#1C4D8D]"
-            >
-              <option value="Tuition Fee">Tuition Fee</option>
-              <option value="Library Fee">Library Fee</option>
-              <option value="Activity Fee">Activity Fee</option>
-              <option value="other">Other (Custom)</option>
-            </select>
-            
-            {showCustomFeeInput && (
-              <div className="flex gap-2">
-                <Input 
-                  id="customFeeType"
-                  value={customFeeType}
-                  onChange={handleInputChange}
-                  placeholder="Enter custom fee type"
-                  type="text"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setShowCustomFeeInput(false);
-                    setCustomFeeType('');
-                    setFormData((prev) => ({ ...prev, type: 'Tuition Fee' }));
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
 
         <div>
           <Label htmlFor="feeAmount" className="text-[#0F2854] font-semibold">Fee Amount (₱) *</Label>
           <Input 
             id="feeAmount" 
-            type="number" 
+            name="feeAmount"
+            type="text" 
             value={formData.feeAmount} 
             onChange={handleInputChange} 
             placeholder="Enter fee amount"
-            step="0.01"
             className="mt-1.5"
           />
         </div>
@@ -464,6 +324,7 @@ export function StudentTable({
           </Label>
           <Input 
             id="dueDate" 
+            name="dueDate"
             type="date" 
             value={formData.dueDate} 
             onChange={handleInputChange}
@@ -472,9 +333,10 @@ export function StudentTable({
         </div>
 
         <div>
-          <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">Fee Status</Label>
+          <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">Status</Label>
           <select 
             id="feeStatus" 
+            name="feeStatus"
             value={formData.feeStatus} 
             onChange={handleInputChange} 
             className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
@@ -484,20 +346,12 @@ export function StudentTable({
             <option value="overdue">Overdue</option>
           </select>
         </div>
-      </div>
 
-      {/* Description Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-[#1C4D8D]" />
-          <h3 className="font-semibold text-[#0F2854]">Additional Details</h3>
-        </div>
-        <Separator />
-        
         <div>
           <Label htmlFor="description" className="text-[#0F2854] font-semibold">Description</Label>
           <textarea
             id="description"
+            name="description"
             value={formData.description}
             onChange={handleInputChange}
             placeholder="Enter fee description"
@@ -652,6 +506,145 @@ export function StudentTable({
         </DialogContent>
       </Dialog>
 
+      {/* ==================== Add Fee for New Student Dialog ==================== */}
+      <Dialog open={isAddNewStudentFeeDialogOpen} onOpenChange={setIsAddNewStudentFeeDialogOpen}>
+        <DialogTrigger asChild>
+          <Button className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] mb-6">
+            <Plus className="w-4 h-4 mr-2" /> Add Fee for New Student
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <DollarSign className="w-6 h-6 text-[#1C4D8D]" />
+              Add Fee for New Student
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-5">
+            {/* Student Identification Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#1C4D8D]" />
+                <h3 className="font-semibold text-[#0F2854]">Student Identification</h3>
+              </div>
+              <Separator />
+
+              <div>
+                <Label htmlFor="studentId" className="text-[#0F2854] font-semibold">Student ID *</Label>
+                <Input 
+                  id="studentId" 
+                  name="studentId"
+                  type="text" 
+                  value={newStudentFeeForm.studentId} 
+                  onChange={handleNewStudentFeeInputChange} 
+                  placeholder="e.g., STU001 or 1"
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+
+            {/* Fee Information Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-[#1C4D8D]" />
+                <h3 className="font-semibold text-[#0F2854]">Fee Information</h3>
+              </div>
+              <Separator />
+
+              <div>
+                <Label htmlFor="feeType" className="text-[#0F2854] font-semibold">Fee Type *</Label>
+                <Input 
+                  id="feeType" 
+                  name="feeType"
+                  type="text" 
+                  value={newStudentFeeForm.feeType} 
+                  onChange={handleNewStudentFeeInputChange} 
+                  placeholder="e.g., Tuition Fee, Library Fee"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="newFeeAmount" className="text-[#0F2854] font-semibold">Fee Amount (₱) *</Label>
+                <Input 
+                  id="newFeeAmount" 
+                  name="feeAmount"
+                  type="text" 
+                  value={newStudentFeeForm.feeAmount} 
+                  onChange={handleNewStudentFeeInputChange} 
+                  placeholder="Enter fee amount"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="newDueDate" className="text-[#0F2854] font-semibold flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Due Date *
+                </Label>
+                <Input 
+                  id="newDueDate" 
+                  name="dueDate"
+                  type="date" 
+                  value={newStudentFeeForm.dueDate} 
+                  onChange={handleNewStudentFeeInputChange}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="newFeeStatus" className="text-[#0F2854] font-semibold">Status</Label>
+                <select 
+                  id="newFeeStatus" 
+                  name="feeStatus"
+                  value={newStudentFeeForm.feeStatus} 
+                  onChange={handleNewStudentFeeInputChange} 
+                  className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="newDescription" className="text-[#0F2854] font-semibold">Description</Label>
+                <textarea
+                  id="newDescription"
+                  name="description"
+                  value={newStudentFeeForm.description}
+                  onChange={handleNewStudentFeeInputChange}
+                  placeholder="Enter fee description"
+                  className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 mt-6">
+              <Button 
+                onClick={handleAddFeeForNewStudent} 
+                className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Fee
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  resetNewStudentFeeForm();
+                  setIsAddNewStudentFeeDialogOpen(false);
+                }} 
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ==================== Student Fee Records Table ==================== */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -659,52 +652,13 @@ export function StudentTable({
             <h3 className="text-2xl font-bold text-[#0F2854]">Student Fee Records</h3>
             <p className="text-sm text-[#4988C4] mt-1">Manage and track student payments</p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]" onClick={resetForm}>
-                <Plus className="w-4 h-4 mr-2" /> Add New Student
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-2xl flex items-center gap-2">
-                  <GraduationCap className="w-6 h-6 text-[#1C4D8D]" />
-                  Add New Student
-                </DialogTitle>
-              </DialogHeader>
-              <StudentForm isEdit={false} />
-              <div className="flex gap-2 mt-6">
-                <Button onClick={handleAddStudent} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">
-                  <Plus className="w-4 h-4 mr-2" /> Add Student
-                </Button>
-                <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }} className="flex-1">Cancel</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
-
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl flex items-center gap-2">
-                <Pencil className="w-6 h-6 text-[#1C4D8D]" />
-                Edit Student Information
-              </DialogTitle>
-            </DialogHeader>
-            <StudentForm isEdit={true} />
-            <div className="flex gap-2 mt-6">
-              <Button onClick={handleEditStudent} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">
-                <CheckCircle2 className="w-4 h-4 mr-2" /> Save Changes
-              </Button>
-              <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingStudent(null); resetForm(); }} className="flex-1">Cancel</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <div className="rounded-lg border border-[#BDE8F5] overflow-x-auto">
           <Table>
             <TableHeader className="bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
               <TableRow className="border-b border-[#BDE8F5]">
+                <TableHead className="text-[#0F2854] font-bold">Student ID</TableHead>
                 <TableHead className="text-[#0F2854] font-bold">Student Name</TableHead>
                 <TableHead className="text-[#0F2854] font-bold">Grade</TableHead>
                 <TableHead className="text-[#0F2854] font-bold">Parent Name</TableHead>
@@ -719,6 +673,7 @@ export function StudentTable({
             <TableBody>
               {students.map((student, index) => (
                 <TableRow key={student.id} className={index % 2 === 0 ? 'bg-white' : 'bg-[#F5FAFB]'}>
+                  <TableCell className="font-semibold text-[#1C4D8D]">{student.id}</TableCell>
                   <TableCell className="font-semibold text-[#0F2854]">{student.name}</TableCell>
                   <TableCell className="text-[#4988C4]">{student.grade}</TableCell>
                   <TableCell className="text-[#0F2854]">{student.parentName}</TableCell>
@@ -731,7 +686,7 @@ export function StudentTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-[#0F2854]">{student.type || 'Tuition Fee'}</TableCell>
+                  <TableCell className="text-[#0F2854]">{student.type || '-'}</TableCell>
                   <TableCell className="font-bold text-[#1C4D8D]">₱{student.feeAmount.toLocaleString()}</TableCell>
                   <TableCell className="text-[#4988C4]">{student.dueDate}</TableCell>
                   <TableCell>{getStatusBadge(student.feeStatus)}</TableCell>
@@ -739,17 +694,63 @@ export function StudentTable({
                     <div className="flex gap-1.5">
                       {student.feeStatus !== 'paid' && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => onRecordPayment(student.id)} title="Record Payment">
-                            <DollarSign className="w-4 h-4" />
-                          </Button>
+                          <Dialog open={isAddFeeDialogOpen} onOpenChange={setIsAddFeeDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                title="Add Fee"
+                                onClick={() => {
+                                  setSelectedStudentForFee(student);
+                                  resetForm();
+                                }}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle className="text-2xl flex items-center gap-2">
+                                  <Plus className="w-6 h-6 text-[#1C4D8D]" />
+                                  Add Fee for {selectedStudentForFee?.name}
+                                </DialogTitle>
+                              </DialogHeader>
+                              <FeeForm isEdit={false} />
+                              <div className="flex gap-2 mt-6">
+                                <Button onClick={handleAddFee} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">
+                                  <Plus className="w-4 h-4 mr-2" /> Add Fee
+                                </Button>
+                                <Button variant="outline" onClick={() => { setIsAddFeeDialogOpen(false); resetForm(); }} className="flex-1">Cancel</Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                           <Button size="sm" variant="outline" onClick={() => handleNotifyClick(student)} title="Send Notification">
                             <Bell className="w-4 h-4" />
                           </Button>
                         </>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => handleEditClick(student)} title="Edit">
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => handleEditClick(student)} title="Edit">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="text-2xl flex items-center gap-2">
+                              <Pencil className="w-6 h-6 text-[#1C4D8D]" />
+                              Edit Fee for {editingStudent?.name}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <FeeForm isEdit={true} />
+                          <div className="flex gap-2 mt-6">
+                            <Button onClick={handleEditStudent} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">
+                              <CheckCircle2 className="w-4 h-4 mr-2" /> Save Changes
+                            </Button>
+                            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingStudent(null); resetForm(); }} className="flex-1">Cancel</Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                       <Button size="sm" variant="outline" onClick={() => handleDeleteClick(student)} className="text-red-600 hover:text-red-700" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -765,7 +766,7 @@ export function StudentTable({
           <div className="text-center py-12">
             <GraduationCap className="w-12 h-12 text-[#BDE8F5] mx-auto mb-3" />
             <p className="text-[#4988C4] font-medium">No students added yet</p>
-            <p className="text-sm text-muted-foreground">Click "Add New Student" to get started</p>
+            <p className="text-sm text-muted-foreground">Click "Add Fee for New Student" to get started</p>
           </div>
         )}
       </Card>

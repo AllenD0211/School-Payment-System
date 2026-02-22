@@ -11,6 +11,16 @@ import {
 } from "@/app/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/app/components/ui/dialog";
+import { Input } from "@/app/components/ui/input";
+import { Label } from "@/app/components/ui/label";
+import {
   GraduationCap,
   User,
   Calendar,
@@ -30,6 +40,9 @@ import {
   FileText,
   Eye,
   EyeOff,
+  Plus,
+  Search,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -100,8 +113,8 @@ const parentData: ParentInfo = {
   relationship: "Father",
 };
 
-// Multiple students data
-const studentsData: Student[] = [
+// All available students in the system (for searching/adding)
+const allAvailableStudents: Student[] = [
   {
     info: {
       id: "STU-2024-001",
@@ -207,6 +220,29 @@ const studentsData: Student[] = [
       },
     ],
   },
+  {
+    info: {
+      id: "STU-2024-003",
+      name: "Sophia Smith",
+      grade: "Grade 9",
+      section: "C",
+      rollNumber: "09-C-10",
+      dateOfBirth: "2011-07-10",
+      enrollmentDate: "2024-06-01",
+    },
+    paymentDues: [
+      {
+        id: "6",
+        type: "Tuition Fee",
+        amount: 5000,
+        dueDate: "2026-02-15",
+        status: "pending",
+        description: "Monthly tuition fee for February 2026",
+        studentId: "STU-2024-003",
+      },
+    ],
+    paymentHistory: [],
+  },
 ];
 
 const upcomingEvents: Event[] = [
@@ -239,7 +275,7 @@ const upcomingEvents: Event[] = [
   },
 ];
 
-// Professional PDF Receipt Generation - FIXED
+// Professional PDF Receipt Generation
 const generateProfessionalReceipt = (
   payment: PaymentHistory,
   studentInfo: StudentInfo,
@@ -257,12 +293,10 @@ const generateProfessionalReceipt = (
   const contentWidth = pageWidth - margin * 2;
   let yPosition = margin;
 
-  // ========== HEADER SECTION ==========
-  // Professional Header Background
-  doc.setFillColor(15, 40, 84); // School color
+  // Header
+  doc.setFillColor(15, 40, 84);
   doc.rect(0, 0, pageWidth, 35, "F");
 
-  // School Logo/Title
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
@@ -272,7 +306,6 @@ const generateProfessionalReceipt = (
   doc.setFontSize(9);
   doc.text("Excellence in Education", margin, 22);
 
-  // Receipt Title (Right side)
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(15, 40, 84);
@@ -280,7 +313,6 @@ const generateProfessionalReceipt = (
 
   yPosition = 45;
 
-  // ========== RECEIPT INFO HEADER ==========
   doc.setFontSize(10);
   doc.setFont("Helvetica", "normal");
   doc.setTextColor(50, 50, 50);
@@ -292,19 +324,16 @@ const generateProfessionalReceipt = (
   yPosition += 6;
   doc.text(`Payment Method: ${payment.method}`, margin, yPosition);
 
-  // Status badge info on right
   doc.setFont("Helvetica", "bold");
   doc.setTextColor(0, 128, 0);
   doc.text("STATUS: PAID", pageWidth - margin - 50, receiptInfoStartY);
 
   yPosition += 12;
 
-  // ========== DIVIDER ==========
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 8;
 
-  // ========== STUDENT & PAYER INFORMATION ==========
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(15, 40, 84);
@@ -315,7 +344,6 @@ const generateProfessionalReceipt = (
   doc.setFontSize(9);
   doc.setTextColor(50, 50, 50);
 
-  // Student Info Box
   doc.setFillColor(245, 245, 245);
   doc.rect(margin, yPosition - 3, contentWidth / 2 - 2, 28, "F");
   doc.setDrawColor(200, 200, 200);
@@ -337,7 +365,6 @@ const generateProfessionalReceipt = (
   );
   doc.text(`Roll Number: ${studentInfo.rollNumber}`, margin + 3, studentBoxY + 15);
 
-  // Payer Info Box
   doc.setFillColor(245, 245, 245);
   doc.rect(
     margin + contentWidth / 2,
@@ -388,12 +415,10 @@ const generateProfessionalReceipt = (
 
   yPosition += 32;
 
-  // ========== DIVIDER ==========
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 8;
 
-  // ========== PAYMENT DETAILS TABLE ==========
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(15, 40, 84);
@@ -401,7 +426,6 @@ const generateProfessionalReceipt = (
 
   yPosition += 8;
 
-  // Table Header
   doc.setFillColor(15, 40, 84);
   doc.setTextColor(255, 255, 255);
   doc.setFont("Helvetica", "bold");
@@ -415,7 +439,6 @@ const generateProfessionalReceipt = (
   doc.text("Description", col1X + 2, tableTop + 5);
   doc.text("Amount", col3X + 2, tableTop + 5);
 
-  // Table Content
   doc.setTextColor(50, 50, 50);
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(9);
@@ -427,14 +450,12 @@ const generateProfessionalReceipt = (
 
   yPosition += 8;
 
-  // ========== TOTAL AMOUNT ==========
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
 
   yPosition += 7;
 
-  // Amount box
-  doc.setFillColor(230, 244, 255); // Light blue
+  doc.setFillColor(230, 244, 255);
   doc.rect(col3X - 10, yPosition, 50, 15, "F");
   doc.setDrawColor(15, 40, 84);
   doc.rect(col3X - 10, yPosition, 50, 15);
@@ -451,13 +472,11 @@ const generateProfessionalReceipt = (
 
   yPosition += 22;
 
-  // ========== DIVIDER ==========
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
 
   yPosition += 10;
 
-  // ========== TRANSACTION NOTES ==========
   doc.setFont("Helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(15, 40, 84);
@@ -483,7 +502,6 @@ const generateProfessionalReceipt = (
 
   yPosition += 5;
 
-  // ========== FOOTER ==========
   doc.setDrawColor(15, 40, 84);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
 
@@ -504,13 +522,10 @@ const generateProfessionalReceipt = (
     yPosition += 4;
   });
 
-  // ========== WATERMARK - FIXED ==========
   doc.setTextColor(220, 220, 220);
   doc.setFontSize(80);
   doc.setFont("Helvetica", "bold");
-  // doc.setAlpha(0.08); // Set transparency
-   doc.text("PAID", pageWidth / 2, pageHeight / 2, { align: "center" });
-  // doc.setAlpha(1); // Reset to full opacity
+  doc.text("PAID", pageWidth / 2, pageHeight / 2, { align: "center" });
 
   return doc;
 };
@@ -522,10 +537,22 @@ export default function ParentDashboard() {
     "STU-2024-001"
   );
   const [hideAmounts, setHideAmounts] = useState(false);
+  const [myStudents, setMyStudents] = useState<Student[]>([
+    allAvailableStudents[0],
+    allAvailableStudents[1],
+  ]);
 
-  const currentStudent = studentsData.find(
-    (s) => s.info.id === selectedStudent
+  // Add Child Dialog States
+  const [isAddChildOpen, setIsAddChildOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchType, setSearchType] = useState<"studentId" | "birthdate">(
+    "studentId"
   );
+  const [searchResults, setSearchResults] = useState<Student[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+
+  const currentStudent = myStudents.find((s) => s.info.id === selectedStudent);
 
   if (!currentStudent) {
     return (
@@ -536,6 +563,81 @@ export default function ParentDashboard() {
       </div>
     );
   }
+
+  const handleSearchStudent = () => {
+    setIsSearching(true);
+    setSearchError("");
+    setSearchResults([]);
+
+    // Simulate API call
+    setTimeout(() => {
+      const results = allAvailableStudents.filter((student) => {
+        // Check if already added
+        const alreadyAdded = myStudents.some(
+          (s) => s.info.id === student.info.id
+        );
+        if (alreadyAdded) return false;
+
+        if (searchType === "studentId") {
+          return student.info.id
+            .toLowerCase()
+            .includes(searchInput.toLowerCase());
+        } else {
+          return student.info.dateOfBirth
+            .toLowerCase()
+            .includes(searchInput.toLowerCase());
+        }
+      });
+
+      if (results.length === 0) {
+        setSearchError(
+          `No students found with ${
+            searchType === "studentId" ? "Student ID" : "Birthdate"
+          } "${searchInput}"`
+        );
+      } else {
+        setSearchResults(results);
+      }
+      setIsSearching(false);
+    }, 500);
+  };
+
+  const handleAddChild = (student: Student) => {
+    const alreadyAdded = myStudents.some(
+      (s) => s.info.id === student.info.id
+    );
+
+    if (alreadyAdded) {
+      toast.error("This student is already added to your account");
+      return;
+    }
+
+    setMyStudents([...myStudents, student]);
+    setSelectedStudent(student.info.id);
+    setSearchInput("");
+    setSearchResults([]);
+    setSearchError("");
+    setIsAddChildOpen(false);
+    toast.success(`${student.info.name} has been added successfully!`);
+  };
+
+  const handleRemoveChild = (studentId: string) => {
+    if (myStudents.length === 1) {
+      toast.error("You must have at least one child linked to your account");
+      return;
+    }
+
+    const removedStudent = myStudents.find((s) => s.info.id === studentId);
+    setMyStudents(myStudents.filter((s) => s.info.id !== studentId));
+
+    if (selectedStudent === studentId) {
+      setSelectedStudent(myStudents[0].info.id);
+    }
+
+    toast.success(
+      `${removedStudent?.info.name} has been removed from your account`
+    );
+  };
 
   const handleDownloadReceipt = (payment: PaymentHistory) => {
     try {
@@ -617,20 +719,20 @@ export default function ParentDashboard() {
     0
   );
 
-  const allTotalDue = studentsData
+  const allTotalDue = myStudents
     .flatMap((s) => s.paymentDues)
     .filter((p) => p.status !== "paid")
     .reduce((sum, p) => sum + p.amount, 0);
 
-  const allTotalPaid = studentsData
+  const allTotalPaid = myStudents
     .flatMap((s) => s.paymentHistory)
     .reduce((sum, p) => sum + p.amount, 0);
 
-  const allPendingCount = studentsData
+  const allPendingCount = myStudents
     .flatMap((s) => s.paymentDues)
     .filter((p) => p.status === "pending").length;
 
-  const allOverdueCount = studentsData
+  const allOverdueCount = myStudents
     .flatMap((s) => s.paymentDues)
     .filter((p) => p.status === "overdue").length;
 
@@ -685,33 +787,194 @@ export default function ParentDashboard() {
 
         {/* Student Selector */}
         <Card className="mb-8 p-6 bg-white/95 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-[#1C4D8D]" />
-            <h2 className="text-xl font-semibold text-[#0F2854]">
-              Select Student
-            </h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#1C4D8D]" />
+              <h2 className="text-xl font-semibold text-[#0F2854]">
+                My Children
+              </h2>
+            </div>
+            <Dialog open={isAddChildOpen} onOpenChange={setIsAddChildOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Child
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md bg-white/95 backdrop-blur-sm">
+                <DialogHeader>
+                  <DialogTitle className="text-[#0F2854]">Add Child</DialogTitle>
+                  <DialogDescription className="text-[#4988C4]">
+                    Search and link your child's account by Student ID or
+                    Birthdate
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {/* Search Type Selector */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSearchType("studentId");
+                        setSearchInput("");
+                        setSearchResults([]);
+                        setSearchError("");
+                      }}
+                      className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                        searchType === "studentId"
+                          ? "border-[#1C4D8D] bg-[#BDE8F5]/20"
+                          : "border-[#BDE8F5] hover:border-[#4988C4]"
+                      }`}
+                    >
+                      <p className="text-[#0F2854] font-bold text-sm">
+                        Student ID
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSearchType("birthdate");
+                        setSearchInput("");
+                        setSearchResults([]);
+                        setSearchError("");
+                      }}
+                      className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                        searchType === "birthdate"
+                          ? "border-[#1C4D8D] bg-[#BDE8F5]/20"
+                          : "border-[#BDE8F5] hover:border-[#4988C4]"
+                      }`}
+                    >
+                      <p className="text-[#0F2854] font-bold text-sm">
+                        Birthdate
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="space-y-2">
+                    <Label className="text-[#0F2854]">
+                      {searchType === "studentId" ? "Student ID" : "Birthdate"}
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder={
+                          searchType === "studentId"
+                            ? "e.g., STU-2024-001"
+                            : "YYYY-MM-DD"
+                        }
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") handleSearchStudent();
+                        }}
+                        className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+                      />
+                      <Button
+                        onClick={handleSearchStudent}
+                        disabled={!searchInput || isSearching}
+                        className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]"
+                      >
+                        <Search className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      <p className="text-sm font-bold text-[#0F2854]">
+                        Found {searchResults.length} student(s):
+                      </p>
+                      {searchResults.map((student) => (
+                        <div
+                          key={student.info.id}
+                          className="p-3 bg-gradient-to-r from-[#BDE8F5]/20 to-transparent rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-all"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="font-bold text-[#0F2854]">
+                                {student.info.name}
+                              </p>
+                              <p className="text-xs text-[#4988C4] mt-1">
+                                ID: {student.info.id}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                DOB: {student.info.dateOfBirth}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {student.info.grade} - {student.info.section}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddChild(student)}
+                              className="bg-green-500 hover:bg-green-600 text-white"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Search Error */}
+                  {searchError && (
+                    <div className="p-3 bg-red-50 rounded-lg border-2 border-red-200">
+                      <p className="text-sm text-red-700">{searchError}</p>
+                    </div>
+                  )}
+
+                  {/* No Results Message */}
+                  {!isSearching &&
+                    searchResults.length === 0 &&
+                    !searchError &&
+                    searchInput && (
+                      <div className="p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200">
+                        <p className="text-sm text-yellow-700">
+                          Enter a{" "}
+                          {searchType === "studentId"
+                            ? "Student ID"
+                            : "Birthdate"}{" "}
+                          and click search
+                        </p>
+                      </div>
+                    )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
           <Separator className="mb-4" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {studentsData.map((student) => (
-              <button
-                key={student.info.id}
-                onClick={() => setSelectedStudent(student.info.id)}
-                className={`p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
-                  selectedStudent === student.info.id
-                    ? "border-[#1C4D8D] bg-[#BDE8F5]/20"
-                    : "border-[#BDE8F5] hover:border-[#4988C4]"
-                }`}
-              >
-                <p className="font-bold text-[#0F2854]">{student.info.name}</p>
-                <p className="text-sm text-[#4988C4]">
-                  {student.info.grade} - {student.info.section}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  ID: {student.info.id}
-                </p>
-              </button>
+            {myStudents.map((student) => (
+              <div key={student.info.id} className="relative">
+                <button
+                  onClick={() => setSelectedStudent(student.info.id)}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
+                    selectedStudent === student.info.id
+                      ? "border-[#1C4D8D] bg-[#BDE8F5]/20"
+                      : "border-[#BDE8F5] hover:border-[#4988C4]"
+                  }`}
+                >
+                  <p className="font-bold text-[#0F2854]">{student.info.name}</p>
+                  <p className="text-sm text-[#4988C4]">
+                    {student.info.grade} - {student.info.section}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ID: {student.info.id}
+                  </p>
+                </button>
+
+                {myStudents.length > 1 && (
+                  <button
+                    onClick={() => handleRemoveChild(student.info.id)}
+                    className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all opacity-0 hover:opacity-100"
+                    title="Remove child"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </Card>
@@ -1133,7 +1396,7 @@ export default function ParentDashboard() {
               <Separator className="mb-6" />
 
               <div className="space-y-4">
-                {studentsData.map((student) => {
+                {myStudents.map((student) => {
                   const studentTotalDue = student.paymentDues
                     .filter((p) => p.status !== "paid")
                     .reduce((sum, p) => sum + p.amount, 0);
@@ -1401,7 +1664,7 @@ export default function ParentDashboard() {
                       Total Children Enrolled
                     </p>
                     <p className="text-3xl font-bold text-blue-700">
-                      {studentsData.length}
+                      {myStudents.length}
                     </p>
                   </div>
 
@@ -1476,7 +1739,7 @@ export default function ParentDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {studentsData.map((student) => {
+                    {myStudents.map((student) => {
                       const studentDue = student.paymentDues
                         .filter((p) => p.status !== "paid")
                         .reduce((sum, p) => sum + p.amount, 0);

@@ -781,44 +781,6 @@ IMPORTANT NOTES
               <Button
                 variant="outline"
                 className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-                onClick={handleDownloadPDF}
-                disabled={isExporting}
-                title="Download as PDF"
-              >
-                {isExporting && exportFormat === "pdf" ? (
-                  <>
-                    <Loader className="w-4 h-4 mr-2 animate-spin" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    PDF
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-                onClick={handleDownloadScreenshot}
-                disabled={isExporting}
-                title="Download as image"
-              >
-                {isExporting && exportFormat === "image" ? (
-                  <>
-                    <Loader className="w-4 h-4 mr-2 animate-spin" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Screenshot
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => navigate("/admin")}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -898,22 +860,6 @@ IMPORTANT NOTES
                   <p className="text-[#0F2854] flex items-center gap-2 mt-1">
                     <Mail className="w-4 h-4 text-[#4988C4]" />
                     {student.email}
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <Label className="text-[#4988C4] text-xs font-semibold">Phone</Label>
-                  <p className="text-[#0F2854] flex items-center gap-2 mt-1">
-                    <Phone className="w-4 h-4 text-[#4988C4]" />
-                    {student.phone}
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <Label className="text-[#4988C4] text-xs font-semibold">
-                    Enrollment Date
-                  </Label>
-                  <p className="text-[#0F2854] flex items-center gap-2 mt-1">
-                    <Calendar className="w-4 h-4 text-[#4988C4]" />
-                    {student.enrollmentDate}
                   </p>
                 </div>
               </div>

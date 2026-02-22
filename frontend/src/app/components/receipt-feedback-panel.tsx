@@ -21,6 +21,7 @@ export interface ReceiptFeedback {
   status: 'sent' | 'delivered' | 'read' | 'acknowledged';
   parentFeedback?: string;
   feedbackAt?: string;
+  paymentDescription?: string; // New field for payment reason
 }
 
 interface ReceiptFeedbackPanelProps {
@@ -39,6 +40,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
     amount: '',
     sentVia: 'email' as 'email' | 'sms',
     sentTo: '',
+    paymentDescription: '', // New field
   });
 
   const resetManualForm = () => {
@@ -48,12 +50,18 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
       amount: '',
       sentVia: 'email',
       sentTo: '',
+      paymentDescription: '',
     });
   };
 
   const handleAddManualReceipt = () => {
     if (!manualReceiptForm.receiptNumber || !manualReceiptForm.studentName || !manualReceiptForm.amount || !manualReceiptForm.sentTo) {
-      toast.error('Please fill in all fields');
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!manualReceiptForm.paymentDescription.trim()) {
+      toast.error('Please enter a payment description');
       return;
     }
 
@@ -63,6 +71,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
       amount: parseFloat(manualReceiptForm.amount),
       sentVia: manualReceiptForm.sentVia,
       sentTo: manualReceiptForm.sentTo,
+      paymentDescription: manualReceiptForm.paymentDescription,
     });
 
     resetManualForm();
@@ -171,7 +180,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                     Add Manual Receipt
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <ReceiptIcon className="w-5 h-5 text-[#1C4D8D]" />
@@ -201,6 +210,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                         </Button>
                       </div>
                     </div>
+
                     <div>
                       <Label htmlFor="studentName" className="text-[#0F2854] font-semibold">Student Name</Label>
                       <Input
@@ -211,6 +221,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                         className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
                       />
                     </div>
+
                     <div>
                       <Label htmlFor="amount" className="text-[#0F2854] font-semibold">Amount (₱)</Label>
                       <Input
@@ -222,6 +233,20 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                         className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
                       />
                     </div>
+
+                    <div>
+                      <Label htmlFor="paymentDescription" className="text-[#0F2854] font-semibold">Payment Description / Reason *</Label>
+                      <Textarea
+                        id="paymentDescription"
+                        value={manualReceiptForm.paymentDescription}
+                        onChange={(e) => setManualReceiptForm({ ...manualReceiptForm, paymentDescription: e.target.value })}
+                        placeholder="e.g., Tuition Fee - January 2026, Library Fee, Activity Fee, Sports Program, etc."
+                        rows={3}
+                        className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D] resize-none"
+                      />
+                      <p className="text-xs text-[#4988C4] mt-1">Describe what payment was made for</p>
+                    </div>
+
                     <div>
                       <Label htmlFor="sentVia" className="text-[#0F2854] font-semibold">Send Via</Label>
                       <select
@@ -234,6 +259,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                         <option value="sms">📱 SMS</option>
                       </select>
                     </div>
+
                     <div>
                       <Label htmlFor="sentTo" className="text-[#0F2854] font-semibold">
                         {manualReceiptForm.sentVia === 'email' ? '📧 Email Address' : '📱 Phone Number'}
@@ -247,6 +273,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                       />
                     </div>
                   </div>
+
                   <div className="flex gap-2 mt-4">
                     <Button onClick={handleAddManualReceipt} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">Add Receipt</Button>
                     <Button variant="outline" onClick={() => { setIsManualReceiptDialogOpen(false); resetManualForm(); }} className="flex-1">
@@ -322,6 +349,16 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                         </div>
                       </div>
                     </div>
+
+                    {/* Payment Description */}
+                    {receipt.paymentDescription && (
+                      <div className="mb-3 pb-3 border-b border-[#BDE8F5]">
+                        <p className="text-xs text-[#4988C4] font-semibold mb-1">Payment For:</p>
+                        <p className="text-sm text-[#0F2854] bg-[#BDE8F5]/10 p-2 rounded">
+                          {receipt.paymentDescription}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-[#4988C4] truncate">
@@ -455,7 +492,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-[#1C4D8D] mt-0.5 flex-shrink-0" />
-                <span>Add and manage manual receipts</span>
+                <span>Add and manage manual receipts with descriptions</span>
               </li>
             </ul>
           </Card>
