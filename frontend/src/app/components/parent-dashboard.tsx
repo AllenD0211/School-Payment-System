@@ -515,7 +515,7 @@ const generateProfessionalReceipt = (
   return doc;
 };
 
-export default function StudentDashboard() {
+export default function ParentDashboard() {
   const navigate = useNavigate();
   const [selectedStudent, setSelectedStudent] = useState<string>("STU-2024-001");
   const [expandedStudent, setExpandedStudent] = useState<string | null>(

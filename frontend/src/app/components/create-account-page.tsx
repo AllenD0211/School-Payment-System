@@ -36,6 +36,7 @@ export default function CreateAccountPage() {
     parentFirstName: "",
     parentMiddleName: "",
     parentLastName: "",
+    parentGender: "",
     parentEmail: "",
     parentPassword: "",
     parentConfirmPassword: "",
@@ -108,6 +109,7 @@ export default function CreateAccountPage() {
       if (
         !formData.parentFirstName.trim() ||
         !formData.parentLastName.trim() ||
+        !formData.parentGender.trim() ||
         !formData.parentEmail.trim() ||
         !formData.parentPassword.trim() ||
         !formData.parentConfirmPassword.trim()
@@ -185,6 +187,7 @@ export default function CreateAccountPage() {
           firstName: formData.parentFirstName.trim(),
           middleName: formData.parentMiddleName.trim(),
           lastName: formData.parentLastName.trim(),
+          gender: formData.parentGender,
           email: formData.parentEmail.trim(),
           password: formData.parentPassword,
           notificationMethod,
@@ -221,6 +224,15 @@ export default function CreateAccountPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleUserTypeChange = (value: "student" | "parent") => {
+    setFormData((prev) => ({
+      ...prev,
+      userType: value,
+    }));
+    setNotificationMethod("email");
+    setNotificationContact("");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative background elements */}
@@ -246,61 +258,71 @@ export default function CreateAccountPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* User Type Selection - Horizontal */}
+          {/* User Type Selection - Horizontal - Fully Clickable */}
           <div className="mb-6">
-            <RadioGroup
-              value={formData.userType}
-              onValueChange={(value: "student" | "parent") => {
-                setFormData((prev) => ({
-                  ...prev,
-                  userType: value,
-                }));
-                setNotificationMethod("email");
-                setNotificationContact("");
-              }}
-            >
-              <div className="flex gap-4">
-                {/* Student Option */}
-                <div className="flex items-center flex-1 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem
-                      value="student"
-                      id="student-type"
-                      className="border-[#1C4D8D]"
-                    />
-                    <Label
-                      htmlFor="student-type"
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <div className="p-2 bg-[#BDE8F5] rounded-lg">
-                        <BookOpen className="w-4 h-4 text-[#1C4D8D]" />
-                      </div>
-                      <span className="text-[#0F2854] font-medium">Student</span>
-                    </Label>
+            <div className="flex gap-4">
+              {/* Student Option */}
+              <button
+                type="button"
+                onClick={() => handleUserTypeChange("student")}
+                className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                  formData.userType === "student"
+                    ? "border-[#1C4D8D] bg-[#4988C4]/20"
+                    : "border-[#BDE8F5] bg-gradient-to-r from-[#BDE8F5]/10 to-transparent hover:border-[#4988C4]"
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      formData.userType === "student"
+                        ? "border-[#1C4D8D] bg-[#1C4D8D]"
+                        : "border-[#1C4D8D]"
+                    }`}
+                  >
+                    {formData.userType === "student" && (
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-[#BDE8F5] rounded-lg">
+                      <BookOpen className="w-4 h-4 text-[#1C4D8D]" />
+                    </div>
+                    <span className="text-[#0F2854] font-medium">Student</span>
                   </div>
                 </div>
+              </button>
 
-                {/* Parent Option */}
-                <div className="flex items-center flex-1 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem
-                      value="parent"
-                      id="parent-type"
-                      className="border-[#1C4D8D]"
-                    />
-                    <Label
-                      htmlFor="parent-type"
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <div className="p-2 bg-[#BDE8F5] rounded-lg">
-                        <Users className="w-4 h-4 text-[#1C4D8D]" />
-                      </div>
-                      <span className="text-[#0F2854] font-medium">Parent/Guardian</span>
-                    </Label>
+              {/* Parent Option */}
+              <button
+                type="button"
+                onClick={() => handleUserTypeChange("parent")}
+                className={`flex-1 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                  formData.userType === "parent"
+                    ? "border-[#1C4D8D] bg-[#4988C4]/20"
+                    : "border-[#BDE8F5] bg-gradient-to-r from-[#BDE8F5]/10 to-transparent hover:border-[#4988C4]"
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      formData.userType === "parent"
+                        ? "border-[#1C4D8D] bg-[#1C4D8D]"
+                        : "border-[#1C4D8D]"
+                    }`}
+                  >
+                    {formData.userType === "parent" && (
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-[#BDE8F5] rounded-lg">
+                      <Users className="w-4 h-4 text-[#1C4D8D]" />
+                    </div>
+                    <span className="text-[#0F2854] font-medium">Parent/Guardian</span>
                   </div>
                 </div>
-              </div>
-            </RadioGroup>
+              </button>
+            </div>
           </div>
 
           {/* STUDENT FORM */}
@@ -609,6 +631,28 @@ export default function CreateAccountPage() {
                 </div>
               </div>
 
+              {/* Parent Gender */}
+              <div>
+                <Label htmlFor="parentGender" className="text-[#0F2854]">
+                  Gender *
+                </Label>
+                <Select
+                  value={formData.parentGender}
+                  onValueChange={(value) =>
+                    handleInputChange("parentGender", value)
+                  }
+                >
+                  <SelectTrigger className="border-[#4988C4]/30 focus:border-[#1C4D8D]">
+                    <SelectValue placeholder="Select Gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Parent Email & Password */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -702,60 +746,77 @@ export default function CreateAccountPage() {
                 <Label className="text-[#0F2854] mb-3 block">
                   How would you like to receive notifications? *
                 </Label>
-                <RadioGroup
-                  value={notificationMethod}
-                  onValueChange={(value: "email" | "phone") => {
-                    setNotificationMethod(value);
-                    setNotificationContact("");
-                  }}
-                  className="space-y-3"
-                >
+                <div className="space-y-3">
                   {/* Email Option */}
-                  <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-                    <RadioGroupItem
-                      value="email"
-                      id="email-notification"
-                      className="border-[#1C4D8D]"
-                    />
-                    <Label
-                      htmlFor="email-notification"
-                      className="flex items-center gap-3 cursor-pointer flex-1"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationMethod("email");
+                      setNotificationContact("");
+                    }}
+                    className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                      notificationMethod === "email"
+                        ? "border-[#1C4D8D] bg-[#4988C4]/20"
+                        : "border-[#BDE8F5] bg-gradient-to-r from-[#BDE8F5]/10 to-transparent hover:border-[#4988C4]"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        notificationMethod === "email"
+                          ? "border-[#1C4D8D] bg-[#1C4D8D]"
+                          : "border-[#1C4D8D]"
+                      }`}
                     >
-                      <div className="p-2 bg-[#BDE8F5] rounded-lg">
-                        <Mail className="w-5 h-5 text-[#1C4D8D]" />
-                      </div>
-                      <div>
-                        <p className="text-[#0F2854]">Email</p>
-                        <p className="text-sm text-muted-foreground">
-                          Receive notifications via email
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
+                      {notificationMethod === "email" && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div className="p-2 bg-[#BDE8F5] rounded-lg flex-shrink-0">
+                      <Mail className="w-5 h-5 text-[#1C4D8D]" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[#0F2854] font-medium">Email</p>
+                      <p className="text-sm text-muted-foreground">
+                        Receive notifications via email
+                      </p>
+                    </div>
+                  </button>
 
                   {/* Phone Option */}
-                  <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-[#BDE8F5] hover:border-[#4988C4] transition-colors cursor-pointer bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-                    <RadioGroupItem
-                      value="phone"
-                      id="phone-notification"
-                      className="border-[#1C4D8D]"
-                    />
-                    <Label
-                      htmlFor="phone-notification"
-                      className="flex items-center gap-3 cursor-pointer flex-1"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationMethod("phone");
+                      setNotificationContact("");
+                    }}
+                    className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                      notificationMethod === "phone"
+                        ? "border-[#1C4D8D] bg-[#4988C4]/20"
+                        : "border-[#BDE8F5] bg-gradient-to-r from-[#BDE8F5]/10 to-transparent hover:border-[#4988C4]"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        notificationMethod === "phone"
+                          ? "border-[#1C4D8D] bg-[#1C4D8D]"
+                          : "border-[#1C4D8D]"
+                      }`}
                     >
-                      <div className="p-2 bg-[#BDE8F5] rounded-lg">
-                        <Smartphone className="w-5 h-5 text-[#1C4D8D]" />
-                      </div>
-                      <div>
-                        <p className="text-[#0F2854]">Phone Number</p>
-                        <p className="text-sm text-muted-foreground">
-                          Receive notifications via SMS
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
+                      {notificationMethod === "phone" && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div className="p-2 bg-[#BDE8F5] rounded-lg flex-shrink-0">
+                      <Smartphone className="w-5 h-5 text-[#1C4D8D]" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[#0F2854] font-medium">Phone Number</p>
+                      <p className="text-sm text-muted-foreground">
+                        Receive notifications via SMS
+                      </p>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* Notification Contact */}
