@@ -60,10 +60,10 @@ export default function LoginPage() {
           localStorage.setItem("rememberEmail", email);
         }
 
-        if (data.usertype === "admin") {
+        if (data.user.usertype === "admin") {
           navigate("/admin");
         } else {
-          navigate("/student");
+          navigate("/parent");
         }
       } else {
         toast.error(data.message);
@@ -189,7 +189,7 @@ export default function LoginPage() {
                   to="/forgot-password"
                   className="text-xs text-[#4988C4] hover:text-[#1C4D8D] hover:underline"
                 >
-                  Forgot?
+                  Forgot Password?
                 </Link>
               </div>
               <div className="relative mt-2">

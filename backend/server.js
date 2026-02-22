@@ -1,10 +1,14 @@
 require("dotenv").config();
 const express = require("express");
-// const connectDB = require("./config/db");
+const connectDB = require("./config/db");
 const cors = require("cors");
 const morgan = require("morgan");
 const authRoutes = require("./routes/authRoutes");
-const emailRoutes = require("./routes/email");
+const emailRoutes = require("./routes/emailRoutes");
+const studentsRoutes = require("./routes/studentRoutes");
+const eventRoutes = require("./routes/schoolEventRoutes");
+const receiptRoutes = require("./routes/receiptRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 const PORT = process.env.PORT || 5000;
 
@@ -24,6 +28,12 @@ connectDB();
 // Routes
 app.get("/", (req, res) => res.send("API running..."));
 app.use("/api/auth", authRoutes);
+
+// Student routes
+app.use("/api/students", studentsRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/receipts", receiptRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Start server
 app.listen(PORT, () => {

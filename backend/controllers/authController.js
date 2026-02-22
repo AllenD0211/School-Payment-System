@@ -1,48 +1,176 @@
-const bcrypt = require('bcryptjs');
-const { generateToken } = require('../utils/jwt');
+const bcrypt = require("bcryptjs");
+const User = require("../models/userModel");
+const crypto = require("crypto");
+const sendMail = require("../utils/mailer");
+const { generateToken } = require("../utils/jwt");
 
-// Register user (only works if you later add a DB)
+// REGISTER
 const registerUser = async (req, res) => {
+  try {
+    const {
+      firstName,
+      middleName,
+      lastName,
+      email,
+      password,
+      notificationMethod,
+      notificationContact
+    } = req.body;
+
+    if (!firstName || !lastName || !email || !password || !notificationMethod || !notificationContact) {
+      return res.status(400).json({ message: "All required fields must be filled" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ message: "User already exists" });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = await User.create({
+      firstName,
+      middleName,
+      lastName,
+      email,
+      password: hashedPassword,
+      notificationMethod,
+      notificationContact,
+      usertype: "parent"
+    });
+
+    res.status(201).json({
+      message: "Account created successfully",
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// LOGIN
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Since no DB yet, just return success
-    res.status(201).json({ message: "User registered successfully!", email });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(400).json({ message: "Invalid email or password" });
 
-// Login user using demo credentials from .env
-const loginUser = async (req, res) => {
-  try {
-    const { email, password, userType } = req.body;
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid email or password" });
 
-    // Compare with demo credentials from .env
-    const DEMO_EMAIL = userType === 'admin' ? process.env.DEMO_ADMIN_EMAIL : process.env.DEMO_STUDENT_EMAIL;
-    const DEMO_PASSWORD = userType === 'admin' ? process.env.DEMO_ADMIN_PASSWORD : process.env.DEMO_STUDENT_PASSWORD;
-
-    if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Create a fake token for demo purposes
-    const token = generateToken({ id: "demo-id", email });
+    const token = generateToken({
+      id: user._id,
+      email: user.email,
+      usertype: user.usertype
+    });
 
     res.json({
-      message: 'Login successful',
+      message: "Login successful",
       token,
-      user: { email, userType },
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        usertype: user.usertype
+      }
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// Export at the bottom
-module.exports = {
-  registerUser,
-  loginUser,
+// FORGOT PASSWORD
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({ message: "If that email exists, a reset code has been sent." });
+    }
+
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+    const hashedCode = await bcrypt.hash(resetCode, 10);
+
+    user.resetCode = hashedCode;
+    user.resetCodeExpiry = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    await sendMail(
+      email,
+      "Password Reset Code",
+      `Your verification code is: <b>${resetCode}</b>. It expires in 10 minutes.`
+    );
+
+    res.json({ message: "Verification code sent to email" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
+
+const verifyCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+
+    const isMatch = await bcrypt.compare(code, user.resetCode);
+
+    if (!isMatch || user.resetCodeExpiry < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+
+    res.json({ message: "Code verified successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+
+    const isMatch = await bcrypt.compare(code, user.resetCode);
+
+    if (!isMatch || user.resetCodeExpiry < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    user.resetCode = undefined;
+    user.resetCodeExpiry = undefined;
+
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = { registerUser, loginUser, forgotPassword, verifyCode, resetPassword };
