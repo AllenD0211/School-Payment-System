@@ -3,7 +3,13 @@ import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/app/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/app/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +27,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/app/components/ui/table";
-import { Bell, DollarSign, CheckCircle2, AlertCircle, Plus, Pencil, Trash2, Mail, MessageSquare, X, GraduationCap, Users, FileText, Calendar } from "lucide-react";
+import {
+  Bell,
+  DollarSign,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
+  Pencil,
+  Trash2,
+  Mail,
+  MessageSquare,
+  X,
+  GraduationCap,
+  Users,
+  FileText,
+  Calendar,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Separator } from "@/app/components/ui/separator";
@@ -31,7 +52,7 @@ export interface EventFee {
   eventName: string;
   amount: number;
   dueDate: string;
-  status: 'paid' | 'pending' | 'overdue';
+  status: "paid" | "pending" | "overdue";
 }
 
 export interface Student {
@@ -41,88 +62,100 @@ export interface Student {
   parentName: string;
   parentContact: string;
   feeAmount: number;
-  feeStatus: 'paid' | 'pending' | 'overdue';
+  feeStatus: "paid" | "pending" | "overdue";
   dueDate: string;
   description?: string;
   type?: string;
   parentEmail?: string;
-  notificationMethod?: 'sms' | 'email';
+  notificationMethod?: "sms" | "email";
   eventFees?: EventFee[];
   birthDate?: string;
 }
 
 interface StudentTableProps {
   students: Student[];
-  onNotifyParent: (studentId: string, method: 'sms' | 'email') => void;
+  onNotifyParent: (studentId: string, method: "sms" | "email") => void;
   onRecordPayment: (studentId: string) => void;
-  onAddFee: (studentId: string, fee: Omit<Student, 'id'>) => void;
-  onEditStudent: (studentId: string, student: Omit<Student, 'id'>) => void;
+  onAddFee: (studentId: string, fee: Omit<Student, "id">) => void;
+  onEditStudent: (studentId: string, student: Omit<Student, "id">) => void;
   onDeleteStudent: (studentId: string) => void;
 }
 
-export function StudentTable({ 
-  students, 
-  onNotifyParent, 
+export function StudentTable({
+  students,
+  onNotifyParent,
   onRecordPayment,
   onAddFee,
   onEditStudent,
-  onDeleteStudent
+  onDeleteStudent,
 }: StudentTableProps) {
   const [isAddFeeDialogOpen, setIsAddFeeDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isAddNewStudentFeeDialogOpen, setIsAddNewStudentFeeDialogOpen] = useState(false);
+  const [isAddNewStudentFeeDialogOpen, setIsAddNewStudentFeeDialogOpen] =
+    useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedStudentForNotify, setSelectedStudentForNotify] = useState<Student | null>(null);
-  const [selectedStudentForDelete, setSelectedStudentForDelete] = useState<Student | null>(null);
-  const [notificationMethod, setNotificationMethod] = useState<'sms' | 'email'>('sms');
+  const [selectedStudentForNotify, setSelectedStudentForNotify] =
+    useState<Student | null>(null);
+  const [selectedStudentForDelete, setSelectedStudentForDelete] =
+    useState<Student | null>(null);
+  const [notificationMethod, setNotificationMethod] = useState<"sms" | "email">(
+    "sms",
+  );
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [selectedStudentForFee, setSelectedStudentForFee] = useState<Student | null>(null);
+  const [selectedStudentForFee, setSelectedStudentForFee] =
+    useState<Student | null>(null);
 
   const [formData, setFormData] = useState({
-    feeAmount: '',
-    dueDate: '',
-    feeStatus: 'pending' as 'paid' | 'pending' | 'overdue',
-    description: '',
+    feeType: "",
+    feeAmount: "",
+    dueDate: "",
+    feeStatus: "pending" as "paid" | "pending" | "overdue",
+    eventFeeAmount: "",
+    eventFeeDueDate: "",
   });
 
   const [newStudentFeeForm, setNewStudentFeeForm] = useState({
-    studentId: '',
-    feeType: '',
-    feeAmount: '',
-    dueDate: '',
-    feeStatus: 'pending' as 'paid' | 'pending' | 'overdue',
-    description: '',
+    studentId: "",
+    feeType: "",
+    feeAmount: "",
+    dueDate: "",
+    feeStatus: "pending" as "paid" | "pending" | "overdue",
   });
 
   const resetForm = () => {
     setFormData({
-      feeAmount: '',
-      dueDate: '',
-      feeStatus: 'pending',
-      description: '',
+      feeType: "",
+      feeAmount: "",
+      dueDate: "",
+      feeStatus: "pending",
+      eventFeeAmount: "",
+      eventFeeDueDate: "",
     });
     setSelectedStudentForFee(null);
   };
 
   const resetNewStudentFeeForm = () => {
     setNewStudentFeeForm({
-      studentId: '',
-      feeType: '',
-      feeAmount: '',
-      dueDate: '',
-      feeStatus: 'pending',
-      description: '',
+      studentId: "",
+      feeType: "",
+      feeAmount: "",
+      dueDate: "",
+      feeStatus: "pending",
     });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
     const { name, value } = e.target;
-    
-    if (name === 'feeStatus') {
+
+    if (name === "feeStatus") {
       setFormData((prev) => ({
         ...prev,
-        feeStatus: value as 'paid' | 'pending' | 'overdue',
+        feeStatus: value as "paid" | "pending" | "overdue",
       }));
     } else {
       setFormData((prev) => ({
@@ -132,13 +165,17 @@ export function StudentTable({
     }
   };
 
-  const handleNewStudentFeeInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleNewStudentFeeInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
     const { name, value } = e.target;
-    
-    if (name === 'feeStatus') {
+
+    if (name === "feeStatus") {
       setNewStudentFeeForm((prev) => ({
         ...prev,
-        feeStatus: value as 'paid' | 'pending' | 'overdue',
+        feeStatus: value as "paid" | "pending" | "overdue",
       }));
     } else {
       setNewStudentFeeForm((prev) => ({
@@ -150,15 +187,15 @@ export function StudentTable({
 
   const handleAddFeeForNewStudent = () => {
     const { studentId, feeType, feeAmount, dueDate } = newStudentFeeForm;
-    
-    if (!studentId.trim() || !feeType || !feeAmount || !dueDate) {
-      toast.error('Please fill in all required fields');
+
+    if (!studentId.trim() || !feeType.trim() || !feeAmount || !dueDate) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     // Check if student ID exists in database
-    const foundStudent = students.find((student) => 
-      student.id.toLowerCase() === studentId.toLowerCase()
+    const foundStudent = students.find(
+      (student) => student.id.toLowerCase() === studentId.toLowerCase(),
     );
 
     if (!foundStudent) {
@@ -173,7 +210,6 @@ export function StudentTable({
       feeAmount: parseFloat(feeAmount),
       dueDate,
       feeStatus: newStudentFeeForm.feeStatus,
-      description: newStudentFeeForm.description,
     });
 
     resetNewStudentFeeForm();
@@ -183,57 +219,59 @@ export function StudentTable({
 
   const handleAddFee = () => {
     if (!selectedStudentForFee) return;
-    
-    const { feeAmount, dueDate } = formData;
-    if (!feeAmount || !dueDate) {
-      toast.error('Please fill in all required fields');
+
+    const { feeType, feeAmount, dueDate } = formData;
+    if (!feeType.trim() || !feeAmount || !dueDate) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     onAddFee(selectedStudentForFee.id, {
       ...selectedStudentForFee,
+      type: feeType,
       feeAmount: parseFloat(feeAmount),
       dueDate,
       feeStatus: formData.feeStatus,
-      description: formData.description,
     });
 
     resetForm();
     setIsAddFeeDialogOpen(false);
-    toast.success('Fee added successfully');
+    toast.success("Fee added successfully");
   };
 
   const handleEditClick = (student: Student) => {
     setEditingStudent(student);
     setFormData({
+      feeType: student.type || "",
       feeAmount: student.feeAmount.toString(),
       dueDate: student.dueDate,
       feeStatus: student.feeStatus,
-      description: student.description || '',
+      eventFeeAmount: "",
+      eventFeeDueDate: "",
     });
     setIsEditDialogOpen(true);
   };
 
   const handleEditStudent = () => {
     if (!editingStudent) return;
-    const { feeAmount, dueDate } = formData;
-    if (!feeAmount || !dueDate) {
-      toast.error('Please fill in all required fields');
+    const { feeType, feeAmount, dueDate } = formData;
+    if (!feeType.trim() || !feeAmount || !dueDate) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     onEditStudent(editingStudent.id, {
       ...editingStudent,
+      type: feeType,
       feeAmount: parseFloat(feeAmount),
       dueDate,
       feeStatus: formData.feeStatus,
-      description: formData.description,
     });
 
     resetForm();
     setEditingStudent(null);
     setIsEditDialogOpen(false);
-    toast.success('Fee updated successfully');
+    toast.success("Fee updated successfully");
   };
 
   const handleDeleteClick = (student: Student) => {
@@ -252,43 +290,60 @@ export function StudentTable({
 
   const handleNotifyClick = (student: Student) => {
     setSelectedStudentForNotify(student);
-    setNotificationMethod(student.notificationMethod || 'sms');
+    setNotificationMethod(student.notificationMethod || "sms");
     setNotifyDialogOpen(true);
   };
 
   const handleSendNotification = () => {
     if (!selectedStudentForNotify) return;
 
-    if (notificationMethod === 'sms') {
+    if (notificationMethod === "sms") {
       if (!selectedStudentForNotify.parentContact) {
-        toast.error('Phone number not available for this parent');
+        toast.error("Phone number not available for this parent");
         return;
       }
-    } else if (notificationMethod === 'email') {
+    } else if (notificationMethod === "email") {
       if (!selectedStudentForNotify.parentEmail) {
-        toast.error('Email not available for this parent');
+        toast.error("Email not available for this parent");
         return;
       }
     }
 
     onNotifyParent(selectedStudentForNotify.id, notificationMethod);
-    
-    const methodText = notificationMethod === 'sms' ? 'SMS' : 'Email';
-    toast.success(`Notification sent via ${methodText} to ${selectedStudentForNotify.parentName}`);
-    
+
+    const methodText = notificationMethod === "sms" ? "SMS" : "Email";
+    toast.success(
+      `Notification sent via ${methodText} to ${selectedStudentForNotify.parentName}`,
+    );
+
     setNotifyDialogOpen(false);
     setSelectedStudentForNotify(null);
-    setNotificationMethod('sms');
+    setNotificationMethod("sms");
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'paid':
-        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Paid</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600"><AlertCircle className="w-3 h-3 mr-1" />Pending</Badge>;
-      case 'overdue':
-        return <Badge className="bg-red-500 hover:bg-red-600"><AlertCircle className="w-3 h-3 mr-1" />Overdue</Badge>;
+      case "paid":
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Paid
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case "overdue":
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Overdue
+          </Badge>
+        );
       default:
         return null;
     }
@@ -305,59 +360,71 @@ export function StudentTable({
         <Separator />
 
         <div>
-          <Label htmlFor="feeAmount" className="text-[#0F2854] font-semibold">Fee Amount (₱) *</Label>
-          <Input 
-            id="feeAmount" 
+          <Label
+            htmlFor="feeType"
+            className="text-[#0F2854] font-semibold"
+          >
+            Fee Type *
+          </Label>
+          <Input
+            id="feeType"
+            name="feeType"
+            type="text"
+            value={formData.feeType}
+            onChange={handleInputChange}
+            placeholder="e.g., Tuition Fee, Laboratory Fee, Sports Event"
+            className="mt-1.5"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="feeAmount" className="text-[#0F2854] font-semibold">
+            Fee Amount (₱) *
+          </Label>
+          <Input
+            id="feeAmount"
             name="feeAmount"
-            type="text" 
-            value={formData.feeAmount} 
-            onChange={handleInputChange} 
+            type="text"
+            value={formData.feeAmount}
+            onChange={handleInputChange}
             placeholder="Enter fee amount"
             className="mt-1.5"
           />
         </div>
 
         <div>
-          <Label htmlFor="dueDate" className="text-[#0F2854] font-semibold flex items-center gap-2">
+          <Label
+            htmlFor="dueDate"
+            className="text-[#0F2854] font-semibold flex items-center gap-2"
+          >
             <Calendar className="w-4 h-4" />
             Due Date *
           </Label>
-          <Input 
-            id="dueDate" 
+          <Input
+            id="dueDate"
             name="dueDate"
-            type="date" 
-            value={formData.dueDate} 
+            type="date"
+            value={formData.dueDate}
             onChange={handleInputChange}
             className="mt-1.5"
           />
         </div>
 
         <div>
-          <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">Status</Label>
-          <select 
-            id="feeStatus" 
+          <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">
+            Status
+          </Label>
+          <select
+            id="feeStatus"
             name="feeStatus"
-            value={formData.feeStatus} 
-            onChange={handleInputChange} 
+            value={formData.feeStatus}
+            onChange={handleInputChange}
             className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
           >
             <option value="pending">Pending</option>
             <option value="paid">Paid</option>
             <option value="overdue">Overdue</option>
           </select>
-        </div>
-
-        <div>
-          <Label htmlFor="description" className="text-[#0F2854] font-semibold">Description</Label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            placeholder="Enter fee description"
-            className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
-            rows={3}
-          />
         </div>
       </div>
     </div>
@@ -377,17 +444,24 @@ export function StudentTable({
               {selectedStudentForDelete && (
                 <div className="space-y-2">
                   <p>
-                    Are you sure you want to delete <span className="font-semibold">{selectedStudentForDelete.name}</span>?
+                    Are you sure you want to delete{" "}
+                    <span className="font-semibold">
+                      {selectedStudentForDelete.name}
+                    </span>
+                    ?
                   </p>
                   <div className="p-3 bg-red-50 rounded-lg border border-red-200 mt-3">
                     <p className="text-sm">
-                      <span className="font-semibold">Student:</span> {selectedStudentForDelete.name}
+                      <span className="font-semibold">Student:</span>{" "}
+                      {selectedStudentForDelete.name}
                     </p>
                     <p className="text-sm">
-                      <span className="font-semibold">Parent:</span> {selectedStudentForDelete.parentName}
+                      <span className="font-semibold">Parent:</span>{" "}
+                      {selectedStudentForDelete.parentName}
                     </p>
                     <p className="text-sm">
-                      <span className="font-semibold">Fee Amount:</span> ₱{selectedStudentForDelete.feeAmount.toLocaleString()}
+                      <span className="font-semibold">Fee Amount:</span> ₱
+                      {selectedStudentForDelete.feeAmount.toLocaleString()}
                     </p>
                   </div>
                   <p className="text-sm text-red-600 font-semibold mt-3">
@@ -399,7 +473,7 @@ export function StudentTable({
           </AlertDialogHeader>
           <div className="flex gap-2 mt-4">
             <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmDelete}
               className="flex-1 bg-red-600 hover:bg-red-700"
             >
@@ -418,38 +492,60 @@ export function StudentTable({
               Send Notification
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedStudentForNotify && (
             <div className="space-y-6">
               {/* Student Info */}
               <div className="p-4 bg-gradient-to-br from-[#BDE8F5]/20 to-transparent rounded-lg border border-[#BDE8F5]">
-                <p className="text-sm"><span className="font-semibold text-[#0F2854]">Student:</span> <span className="text-[#1C4D8D]">{selectedStudentForNotify.name}</span></p>
-                <p className="text-sm mt-1"><span className="font-semibold text-[#0F2854]">Parent:</span> <span className="text-[#1C4D8D]">{selectedStudentForNotify.parentName}</span></p>
-                <p className="text-sm mt-1"><span className="font-semibold text-[#0F2854]">Fee:</span> <span className="text-[#1C4D8D]">₱{selectedStudentForNotify.feeAmount.toLocaleString()}</span></p>
-                <p className="text-sm mt-1"><span className="font-semibold text-[#0F2854]">Status:</span> {getStatusBadge(selectedStudentForNotify.feeStatus)}</p>
+                <p className="text-sm">
+                  <span className="font-semibold text-[#0F2854]">Student:</span>{" "}
+                  <span className="text-[#1C4D8D]">
+                    {selectedStudentForNotify.name}
+                  </span>
+                </p>
+                <p className="text-sm mt-1">
+                  <span className="font-semibold text-[#0F2854]">Parent:</span>{" "}
+                  <span className="text-[#1C4D8D]">
+                    {selectedStudentForNotify.parentName}
+                  </span>
+                </p>
+                <p className="text-sm mt-1">
+                  <span className="font-semibold text-[#0F2854]">Fee:</span>{" "}
+                  <span className="text-[#1C4D8D]">
+                    ₱{selectedStudentForNotify.feeAmount.toLocaleString()}
+                  </span>
+                </p>
+                <p className="text-sm mt-1">
+                  <span className="font-semibold text-[#0F2854]">Status:</span>{" "}
+                  {getStatusBadge(selectedStudentForNotify.feeStatus)}
+                </p>
               </div>
 
               {/* Notification Method Selection */}
               <div className="space-y-3">
-                <Label className="text-base font-semibold text-[#0F2854]">Select Notification Method:</Label>
-                
+                <Label className="text-base font-semibold text-[#0F2854]">
+                  Select Notification Method:
+                </Label>
+
                 {/* SMS Option */}
-                <div 
+                <div
                   className="flex items-start space-x-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition-all"
-                  onClick={() => setNotificationMethod('sms')}
+                  onClick={() => setNotificationMethod("sms")}
                 >
                   <input
                     type="radio"
                     name="method"
                     value="sms"
-                    checked={notificationMethod === 'sms'}
-                    onChange={() => setNotificationMethod('sms')}
+                    checked={notificationMethod === "sms"}
+                    onChange={() => setNotificationMethod("sms")}
                     className="mt-1"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <MessageSquare className="w-4 h-4 text-blue-600" />
-                      <span className="font-semibold text-sm text-[#0F2854]">SMS</span>
+                      <span className="font-semibold text-sm text-[#0F2854]">
+                        SMS
+                      </span>
                     </div>
                     <p className="text-xs text-gray-600 mt-1">
                       Send via SMS to {selectedStudentForNotify.parentContact}
@@ -458,28 +554,33 @@ export function StudentTable({
                 </div>
 
                 {/* Email Option */}
-                <div 
+                <div
                   className="flex items-start space-x-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-400 transition-all"
-                  onClick={() => setNotificationMethod('email')}
+                  onClick={() => setNotificationMethod("email")}
                 >
                   <input
                     type="radio"
                     name="method"
                     value="email"
-                    checked={notificationMethod === 'email'}
-                    onChange={() => setNotificationMethod('email')}
+                    checked={notificationMethod === "email"}
+                    onChange={() => setNotificationMethod("email")}
                     className="mt-1"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-green-600" />
-                      <span className="font-semibold text-sm text-[#0F2854]">Email</span>
+                      <span className="font-semibold text-sm text-[#0F2854]">
+                        Email
+                      </span>
                     </div>
                     <p className="text-xs text-gray-600 mt-1">
-                      Send via Email to {selectedStudentForNotify.parentEmail || 'Not provided'}
+                      Send via Email to{" "}
+                      {selectedStudentForNotify.parentEmail || "Not provided"}
                     </p>
                     {!selectedStudentForNotify.parentEmail && (
-                      <p className="text-xs text-red-500 mt-1">⚠️ No email address on file</p>
+                      <p className="text-xs text-red-500 mt-1">
+                        ⚠️ No email address on file
+                      </p>
                     )}
                   </div>
                 </div>
@@ -487,15 +588,15 @@ export function StudentTable({
 
               {/* Action Buttons */}
               <div className="flex gap-2 mt-6">
-                <Button 
-                  onClick={handleSendNotification} 
+                <Button
+                  onClick={handleSendNotification}
                   className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]"
                 >
-                  Send {notificationMethod === 'sms' ? 'SMS' : 'Email'}
+                  Send {notificationMethod === "sms" ? "SMS" : "Email"}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setNotifyDialogOpen(false)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setNotifyDialogOpen(false)}
                   className="flex-1"
                 >
                   Cancel
@@ -507,37 +608,41 @@ export function StudentTable({
       </Dialog>
 
       {/* ==================== Add Fee for New Student Dialog ==================== */}
-      <Dialog open={isAddNewStudentFeeDialogOpen} onOpenChange={setIsAddNewStudentFeeDialogOpen}>
+      <Dialog
+        open={isAddNewStudentFeeDialogOpen}
+        onOpenChange={setIsAddNewStudentFeeDialogOpen}
+      >
         <DialogTrigger asChild>
           <Button className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] mb-6">
-            <Plus className="w-4 h-4 mr-2" /> Add Fee for New Student
+            <Plus className="w-4 h-4 mr-2" /> Add fee for student
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-2">
               <DollarSign className="w-6 h-6 text-[#1C4D8D]" />
-              Add Fee for New Student
+              Add Fee for Student
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-5">
             {/* Student Identification Section */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-[#1C4D8D]" />
-                <h3 className="font-semibold text-[#0F2854]">Student Identification</h3>
-              </div>
               <Separator />
 
               <div>
-                <Label htmlFor="studentId" className="text-[#0F2854] font-semibold">Student ID *</Label>
-                <Input 
-                  id="studentId" 
+                <Label
+                  htmlFor="studentId"
+                  className="text-[#0F2854] font-semibold"
+                >
+                  Student ID *
+                </Label>
+                <Input
+                  id="studentId"
                   name="studentId"
-                  type="text" 
-                  value={newStudentFeeForm.studentId} 
-                  onChange={handleNewStudentFeeInputChange} 
+                  type="text"
+                  value={newStudentFeeForm.studentId}
+                  onChange={handleNewStudentFeeInputChange}
                   placeholder="e.g., STU001 or 1"
                   className="mt-1.5"
                 />
@@ -546,60 +651,72 @@ export function StudentTable({
 
             {/* Fee Information Section */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-[#1C4D8D]" />
-                <h3 className="font-semibold text-[#0F2854]">Fee Information</h3>
-              </div>
-              <Separator />
-
               <div>
-                <Label htmlFor="feeType" className="text-[#0F2854] font-semibold">Fee Type *</Label>
-                <Input 
-                  id="feeType" 
+                <Label
+                  htmlFor="feeType"
+                  className="text-[#0F2854] font-semibold"
+                >
+                  Fee Type *
+                </Label>
+                <Input
+                  id="feeType"
                   name="feeType"
-                  type="text" 
-                  value={newStudentFeeForm.feeType} 
-                  onChange={handleNewStudentFeeInputChange} 
-                  placeholder="e.g., Tuition Fee, Library Fee"
+                  type="text"
+                  value={newStudentFeeForm.feeType}
+                  onChange={handleNewStudentFeeInputChange}
+                  placeholder="e.g., Tuition Fee, Laboratory Fee, Sports Event"
                   className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label htmlFor="newFeeAmount" className="text-[#0F2854] font-semibold">Fee Amount (₱) *</Label>
-                <Input 
-                  id="newFeeAmount" 
+                <Label
+                  htmlFor="newFeeAmount"
+                  className="text-[#0F2854] font-semibold"
+                >
+                  Fee Amount (₱) *
+                </Label>
+                <Input
+                  id="newFeeAmount"
                   name="feeAmount"
-                  type="text" 
-                  value={newStudentFeeForm.feeAmount} 
-                  onChange={handleNewStudentFeeInputChange} 
+                  type="text"
+                  value={newStudentFeeForm.feeAmount}
+                  onChange={handleNewStudentFeeInputChange}
                   placeholder="Enter fee amount"
                   className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label htmlFor="newDueDate" className="text-[#0F2854] font-semibold flex items-center gap-2">
+                <Label
+                  htmlFor="newDueDate"
+                  className="text-[#0F2854] font-semibold flex items-center gap-2"
+                >
                   <Calendar className="w-4 h-4" />
                   Due Date *
                 </Label>
-                <Input 
-                  id="newDueDate" 
+                <Input
+                  id="newDueDate"
                   name="dueDate"
-                  type="date" 
-                  value={newStudentFeeForm.dueDate} 
+                  type="date"
+                  value={newStudentFeeForm.dueDate}
                   onChange={handleNewStudentFeeInputChange}
                   className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label htmlFor="newFeeStatus" className="text-[#0F2854] font-semibold">Status</Label>
-                <select 
-                  id="newFeeStatus" 
+                <Label
+                  htmlFor="newFeeStatus"
+                  className="text-[#0F2854] font-semibold"
+                >
+                  Status
+                </Label>
+                <select
+                  id="newFeeStatus"
                   name="feeStatus"
-                  value={newStudentFeeForm.feeStatus} 
-                  onChange={handleNewStudentFeeInputChange} 
+                  value={newStudentFeeForm.feeStatus}
+                  onChange={handleNewStudentFeeInputChange}
                   className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
                 >
                   <option value="pending">Pending</option>
@@ -607,35 +724,22 @@ export function StudentTable({
                   <option value="overdue">Overdue</option>
                 </select>
               </div>
-
-              <div>
-                <Label htmlFor="newDescription" className="text-[#0F2854] font-semibold">Description</Label>
-                <textarea
-                  id="newDescription"
-                  name="description"
-                  value={newStudentFeeForm.description}
-                  onChange={handleNewStudentFeeInputChange}
-                  placeholder="Enter fee description"
-                  className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
-                  rows={3}
-                />
-              </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-2 mt-6">
-              <Button 
-                onClick={handleAddFeeForNewStudent} 
+              <Button
+                onClick={handleAddFeeForNewStudent}
                 className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
               >
                 <Plus className="w-4 h-4 mr-2" /> Add Fee
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   resetNewStudentFeeForm();
                   setIsAddNewStudentFeeDialogOpen(false);
-                }} 
+                }}
                 className="flex-1"
               >
                 Cancel
@@ -649,8 +753,12 @@ export function StudentTable({
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-2xl font-bold text-[#0F2854]">Student Fee Records</h3>
-            <p className="text-sm text-[#4988C4] mt-1">Manage and track student payments</p>
+            <h3 className="text-2xl font-bold text-[#0F2854]">
+              Student Fee Records
+            </h3>
+            <p className="text-sm text-[#4988C4] mt-1">
+              Manage and track student payments
+            </p>
           </div>
         </div>
 
@@ -658,47 +766,89 @@ export function StudentTable({
           <Table>
             <TableHeader className="bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
               <TableRow className="border-b border-[#BDE8F5]">
-                <TableHead className="text-[#0F2854] font-bold">Student ID</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Student Name</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Grade</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Parent Name</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Contact Info</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Fee Type</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Amount</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Due Date</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Status</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Actions</TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Student ID
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Student Name
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Grade
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Parent Name
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Contact Info
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Fee Type
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Amount
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Due Date
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Status
+                </TableHead>
+                <TableHead className="text-[#0F2854] font-bold">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {students.map((student, index) => (
-                <TableRow key={student.id} className={index % 2 === 0 ? 'bg-white' : 'bg-[#F5FAFB]'}>
-                  <TableCell className="font-semibold text-[#1C4D8D]">{student.id}</TableCell>
-                  <TableCell className="font-semibold text-[#0F2854]">{student.name}</TableCell>
-                  <TableCell className="text-[#4988C4]">{student.grade}</TableCell>
-                  <TableCell className="text-[#0F2854]">{student.parentName}</TableCell>
+                <TableRow
+                  key={student.id}
+                  className={index % 2 === 0 ? "bg-white" : "bg-[#F5FAFB]"}
+                >
+                  <TableCell className="font-semibold text-[#1C4D8D]">
+                    {student.id}
+                  </TableCell>
+                  <TableCell className="font-semibold text-[#0F2854]">
+                    {student.name}
+                  </TableCell>
+                  <TableCell className="text-[#4988C4]">
+                    {student.grade}
+                  </TableCell>
+                  <TableCell className="text-[#0F2854]">
+                    {student.parentName}
+                  </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      {student.notificationMethod === 'sms' ? (
-                        <p className="text-[#4988C4]">{student.parentContact}</p>
+                      {student.notificationMethod === "sms" ? (
+                        <p className="text-[#4988C4]">
+                          {student.parentContact}
+                        </p>
                       ) : (
                         <p className="text-[#4988C4]">{student.parentEmail}</p>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-[#0F2854]">{student.type || '-'}</TableCell>
-                  <TableCell className="font-bold text-[#1C4D8D]">₱{student.feeAmount.toLocaleString()}</TableCell>
-                  <TableCell className="text-[#4988C4]">{student.dueDate}</TableCell>
+                  <TableCell className="text-[#0F2854]">
+                    {student.type || "-"}
+                  </TableCell>
+                  <TableCell className="font-bold text-[#1C4D8D]">
+                    ₱{student.feeAmount.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-[#4988C4]">
+                    {student.dueDate}
+                  </TableCell>
                   <TableCell>{getStatusBadge(student.feeStatus)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1.5">
-                      {student.feeStatus !== 'paid' && (
+                      {student.feeStatus !== "paid" && (
                         <>
-                          <Dialog open={isAddFeeDialogOpen} onOpenChange={setIsAddFeeDialogOpen}>
+                          <Dialog
+                            open={isAddFeeDialogOpen}
+                            onOpenChange={setIsAddFeeDialogOpen}
+                          >
                             <DialogTrigger asChild>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 title="Add Fee"
                                 onClick={() => {
                                   setSelectedStudentForFee(student);
@@ -717,21 +867,46 @@ export function StudentTable({
                               </DialogHeader>
                               <FeeForm isEdit={false} />
                               <div className="flex gap-2 mt-6">
-                                <Button onClick={handleAddFee} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">
+                                <Button
+                                  onClick={handleAddFee}
+                                  className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
+                                >
                                   <Plus className="w-4 h-4 mr-2" /> Add Fee
                                 </Button>
-                                <Button variant="outline" onClick={() => { setIsAddFeeDialogOpen(false); resetForm(); }} className="flex-1">Cancel</Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setIsAddFeeDialogOpen(false);
+                                    resetForm();
+                                  }}
+                                  className="flex-1"
+                                >
+                                  Cancel
+                                </Button>
                               </div>
                             </DialogContent>
                           </Dialog>
-                          <Button size="sm" variant="outline" onClick={() => handleNotifyClick(student)} title="Send Notification">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleNotifyClick(student)}
+                            title="Send Notification"
+                          >
                             <Bell className="w-4 h-4" />
                           </Button>
                         </>
                       )}
-                      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                      <Dialog
+                        open={isEditDialogOpen}
+                        onOpenChange={setIsEditDialogOpen}
+                      >
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="outline" onClick={() => handleEditClick(student)} title="Edit">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditClick(student)}
+                            title="Edit"
+                          >
                             <Pencil className="w-4 h-4" />
                           </Button>
                         </DialogTrigger>
@@ -744,14 +919,34 @@ export function StudentTable({
                           </DialogHeader>
                           <FeeForm isEdit={true} />
                           <div className="flex gap-2 mt-6">
-                            <Button onClick={handleEditStudent} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">
-                              <CheckCircle2 className="w-4 h-4 mr-2" /> Save Changes
+                            <Button
+                              onClick={handleEditStudent}
+                              className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" /> Save
+                              Changes
                             </Button>
-                            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingStudent(null); resetForm(); }} className="flex-1">Cancel</Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setIsEditDialogOpen(false);
+                                setEditingStudent(null);
+                                resetForm();
+                              }}
+                              className="flex-1"
+                            >
+                              Cancel
+                            </Button>
                           </div>
                         </DialogContent>
                       </Dialog>
-                      <Button size="sm" variant="outline" onClick={() => handleDeleteClick(student)} className="text-red-600 hover:text-red-700" title="Delete">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeleteClick(student)}
+                        className="text-red-600 hover:text-red-700"
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -766,7 +961,9 @@ export function StudentTable({
           <div className="text-center py-12">
             <GraduationCap className="w-12 h-12 text-[#BDE8F5] mx-auto mb-3" />
             <p className="text-[#4988C4] font-medium">No students added yet</p>
-            <p className="text-sm text-muted-foreground">Click "Add Fee for New Student" to get started</p>
+            <p className="text-sm text-muted-foreground">
+              Click "Add Fee for Student" to get started
+            </p>
           </div>
         )}
       </Card>

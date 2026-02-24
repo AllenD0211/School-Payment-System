@@ -21,7 +21,7 @@ import {
 } from "@/app/components/ui/tabs";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, TrendingUp, AlertCircle, Bell } from "lucide-react";
 
 /* -------------------- Initial Data -------------------- */
 const initialStudents: Student[] = [
@@ -36,7 +36,6 @@ const initialStudents: Student[] = [
     feeStatus: "paid",
     dueDate: "2026-01-15",
     type: "Tuition Fee",
-    description: "Monthly tuition fee for January 2026",
     notificationMethod: "sms",
   },
   {
@@ -50,7 +49,6 @@ const initialStudents: Student[] = [
     feeStatus: "pending",
     dueDate: "2026-01-20",
     type: "Tuition Fee",
-    description: "Monthly tuition fee for January 2026",
     notificationMethod: "email",
   },
 ];
@@ -74,15 +72,28 @@ export default function AdminDashboard() {
 
   /* -------------------- Student Handlers -------------------- */
   const handleRecordPayment = (studentId: string) => {
+    const student = students.find((s) => s.id === studentId);
     setStudents((prev) =>
       prev.map((s) => (s.id === studentId ? { ...s, feeStatus: "paid" } : s))
     );
-    const student = students.find((s) => s.id === studentId);
     toast.success(`Payment recorded for ${student?.name}`);
   };
 
-  const handleAddStudent = (student: Omit<Student, "id">) => {
-    setStudents((prev) => [...prev, { ...student, id: Date.now().toString() }]);
+  const handleAddFee = (studentId: string, fee: Omit<Student, "id">) => {
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === studentId
+          ? {
+              ...s,
+              feeAmount: fee.feeAmount,
+              dueDate: fee.dueDate,
+              feeStatus: fee.feeStatus,
+              type: fee.type || s.type,
+            }
+          : s
+      )
+    );
+    toast.success("Fee added successfully");
   };
 
   const handleEditStudent = (
@@ -92,40 +103,47 @@ export default function AdminDashboard() {
     setStudents((prev) =>
       prev.map((s) => (s.id === studentId ? { ...s, ...updatedStudent } : s))
     );
+    toast.success("Student updated successfully");
   };
 
   const handleDeleteStudent = (studentId: string) => {
     setStudents((prev) => prev.filter((s) => s.id !== studentId));
+    toast.success("Student deleted successfully");
   };
 
   /* -------------------- Notification Handler with Method -------------------- */
-  const handleNotifyParent = (studentId: string, method: 'sms' | 'email') => {
+  const handleNotifyParent = (studentId: string, method: "sms" | "email") => {
     const student = students.find((s) => s.id === studentId);
     if (!student) return;
 
     // Validate contact info
-    if (method === 'sms' && !student.parentContact) {
-      toast.error('Phone number not available for SMS');
+    if (method === "sms" && !student.parentContact) {
+      toast.error("Phone number not available for SMS");
       return;
     }
-    if (method === 'email' && !student.parentEmail) {
-      toast.error('Email not available for email');
+    if (method === "email" && !student.parentEmail) {
+      toast.error("Email not available for email");
       return;
     }
 
-    const methodText = method === 'sms' ? 'SMS' : 'Email';
-    const recipient = method === 'sms' ? student.parentContact : student.parentEmail;
+    const methodText = method === "sms" ? "SMS" : "Email";
+    const recipient =
+      method === "sms" ? student.parentContact : student.parentEmail;
 
     const newNotification: Notification = {
       id: Date.now().toString(),
-      recipient: recipient || '',
-      message: `[${methodText}] Reminder: School fee payment for ${student.name} is ${student.feeStatus}. Amount: ₱${student.feeAmount}. Type: ${student.type || 'Tuition Fee'}`,
+      recipient: recipient || "",
+      message: `[${methodText}] Reminder: School fee payment for ${student.name} is ${student.feeStatus}. Amount: ₱${student.feeAmount}. Type: ${
+        student.type || "Tuition Fee"
+      }`,
       timestamp: new Date().toLocaleString(),
       status: "sent",
     };
 
     setNotifications((prev) => [newNotification, ...prev]);
-    toast.success(`${methodText} notification sent to ${student.parentName}`);
+    toast.success(
+      `${methodText} notification sent to ${student.parentName}`
+    );
   };
 
   const handleSendNotification = (recipient: string, message: string) => {
@@ -246,34 +264,56 @@ export default function AdminDashboard() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Total Students</p>
-              <p className="text-3xl font-bold text-[#0F2854]">{totalStudents}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total Students</p>
+                <p className="text-3xl font-bold text-[#0F2854]">{totalStudents}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <GraduationCap className="w-6 h-6 text-[#1C4D8D]" />
+              </div>
             </div>
           </Card>
 
           <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Fees Collected</p>
-              <p className="text-3xl font-bold text-green-600">
-                ₱{totalCollected.toLocaleString()}
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Fees Collected</p>
+                <p className="text-3xl font-bold text-green-600">
+                  ₱{totalCollected.toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
             </div>
           </Card>
 
           <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Pending Fees</p>
-              <p className="text-3xl font-bold text-red-600">
-                ₱{totalPending.toLocaleString()}
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Pending Fees</p>
+                <p className="text-3xl font-bold text-red-600">
+                  ₱{totalPending.toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
             </div>
           </Card>
 
           <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Notifications</p>
-              <p className="text-3xl font-bold text-purple-600">{notifications.length}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Notifications</p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {notifications.length}
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Bell className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
           </Card>
         </div>
@@ -319,7 +359,7 @@ export default function AdminDashboard() {
               students={students}
               onNotifyParent={handleNotifyParent}
               onRecordPayment={handleRecordPayment}
-              onAddStudent={handleAddStudent}
+              onAddFee={handleAddFee}
               onEditStudent={handleEditStudent}
               onDeleteStudent={handleDeleteStudent}
             />

@@ -809,7 +809,7 @@ export default function StudentDashboard() {
                     <p className="text-xs text-muted-foreground mb-3">
                       {payment.description}
                     </p>
-                    {payment.status !== "paid" && (
+                    {/* {payment.status !== "paid" && (
                       <Button
                         size="sm"
                         className="w-full bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] transition-all group-hover:shadow-lg"
@@ -817,7 +817,7 @@ export default function StudentDashboard() {
                       >
                         Pay Now
                       </Button>
-                    )}
+                    )} */}
                   </div>
                 ))}
               </div>

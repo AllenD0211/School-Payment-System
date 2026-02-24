@@ -1062,12 +1062,6 @@ export default function ParentDashboard() {
               Payments
             </TabsTrigger>
             <TabsTrigger
-              value="all-children"
-              className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5] transition-all"
-            >
-              All Children
-            </TabsTrigger>
-            <TabsTrigger
               value="events"
               className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-[#BDE8F5] transition-all"
             >
@@ -1240,7 +1234,7 @@ export default function ParentDashboard() {
                       <p className="text-xs text-muted-foreground">
                         {payment.description}
                       </p>
-                      {payment.status !== "paid" && (
+                      {/* {payment.status !== "paid" && (
                         <Button
                           size="sm"
                           className="w-full mt-3 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] transition-all group-hover:shadow-lg"
@@ -1248,7 +1242,7 @@ export default function ParentDashboard() {
                         >
                           Pay Now
                         </Button>
-                      )}
+                      )} */}
                     </div>
                   ))}
                 </div>
@@ -1385,155 +1379,6 @@ export default function ParentDashboard() {
                 </Card>
               </div>
             </div>
-          </TabsContent>
-
-          {/* All Children Tab */}
-          <TabsContent value="all-children">
-            <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-lg transition-all">
-              <h2 className="text-xl font-semibold text-[#0F2854] mb-4">
-                All Children Overview
-              </h2>
-              <Separator className="mb-6" />
-
-              <div className="space-y-4">
-                {myStudents.map((student) => {
-                  const studentTotalDue = student.paymentDues
-                    .filter((p) => p.status !== "paid")
-                    .reduce((sum, p) => sum + p.amount, 0);
-
-                  return (
-                    <div
-                      key={student.info.id}
-                      className="border-2 border-[#BDE8F5] rounded-lg overflow-hidden hover:border-[#4988C4] transition-all"
-                    >
-                      <button
-                        onClick={() =>
-                          setExpandedStudent(
-                            expandedStudent === student.info.id
-                              ? null
-                              : student.info.id
-                          )
-                        }
-                        className="w-full p-4 flex items-center justify-between bg-gradient-to-r from-[#BDE8F5]/10 to-transparent hover:from-[#BDE8F5]/20 transition-all"
-                      >
-                        <div className="flex items-center gap-3 flex-1 text-left">
-                          <Avatar className="w-12 h-12 border-2 border-[#BDE8F5]">
-                            <AvatarFallback className="bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] text-white font-bold">
-                              {student.info.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-bold text-[#0F2854]">
-                              {student.info.name}
-                            </p>
-                            <p className="text-sm text-[#4988C4]">
-                              {student.info.grade} - {student.info.section}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">
-                              Total Due
-                            </p>
-                            <p className="text-lg font-bold text-red-600">
-                              {formatAmount(studentTotalDue)}
-                            </p>
-                          </div>
-
-                          <ChevronDown
-                            className={`w-5 h-5 text-[#4988C4] transition-transform ${
-                              expandedStudent === student.info.id
-                                ? "rotate-180"
-                                : ""
-                            }`}
-                          />
-                        </div>
-                      </button>
-
-                      {expandedStudent === student.info.id && (
-                        <div className="p-4 bg-white/50 border-t border-[#BDE8F5]">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                              <p className="text-xs text-yellow-700 font-semibold mb-1">
-                                Pending
-                              </p>
-                              <p className="text-2xl font-bold text-yellow-700">
-                                {
-                                  student.paymentDues.filter(
-                                    (p) => p.status === "pending"
-                                  ).length
-                                }
-                              </p>
-                            </div>
-                            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                              <p className="text-xs text-red-700 font-semibold mb-1">
-                                Overdue
-                              </p>
-                              <p className="text-2xl font-bold text-red-700">
-                                {
-                                  student.paymentDues.filter(
-                                    (p) => p.status === "overdue"
-                                  ).length
-                                }
-                              </p>
-                            </div>
-                            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                              <p className="text-xs text-green-700 font-semibold mb-1">
-                                Total Paid
-                              </p>
-                              <p className="text-2xl font-bold text-green-700">
-                                {formatAmount(
-                                  student.paymentHistory.reduce(
-                                    (sum, p) => sum + p.amount,
-                                    0
-                                  )
-                                )}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="font-semibold text-[#0F2854] mb-3">
-                              Pending Payments
-                            </p>
-                            <div className="space-y-2">
-                              {student.paymentDues
-                                .filter((p) => p.status !== "paid")
-                                .map((payment) => (
-                                  <div
-                                    key={payment.id}
-                                    className="p-3 bg-[#BDE8F5]/10 rounded-lg border border-[#BDE8F5] flex justify-between items-center"
-                                  >
-                                    <div>
-                                      <p className="text-sm text-[#0F2854] font-bold">
-                                        {payment.type}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        Due: {payment.dueDate}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <p className="font-bold text-[#1C4D8D]">
-                                        {formatAmount(payment.amount)}
-                                      </p>
-                                      {getPaymentStatusBadge(payment.status)}
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
           </TabsContent>
 
           {/* Events Tab */}
@@ -1706,94 +1551,6 @@ export default function ParentDashboard() {
                 </div>
               </Card>
             </div>
-
-            {/* Children List */}
-            <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-lg transition-all">
-              <h2 className="text-xl font-semibold text-[#0F2854] mb-4">
-                Children List
-              </h2>
-              <Separator className="mb-4" />
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b-2 border-[#BDE8F5]">
-                      <th className="text-left p-3 text-[#0F2854] font-bold">
-                        Name
-                      </th>
-                      <th className="text-left p-3 text-[#0F2854] font-bold">
-                        Grade
-                      </th>
-                      <th className="text-left p-3 text-[#0F2854] font-bold">
-                        Total Due
-                      </th>
-                      <th className="text-left p-3 text-[#0F2854] font-bold">
-                        Total Paid
-                      </th>
-                      <th className="text-left p-3 text-[#0F2854] font-bold">
-                        Status
-                      </th>
-                      <th className="text-left p-3 text-[#0F2854] font-bold">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myStudents.map((student) => {
-                      const studentDue = student.paymentDues
-                        .filter((p) => p.status !== "paid")
-                        .reduce((sum, p) => sum + p.amount, 0);
-                      const studentPaid = student.paymentHistory.reduce(
-                        (sum, p) => sum + p.amount,
-                        0
-                      );
-                      const hasOverdue = student.paymentDues.some(
-                        (p) => p.status === "overdue"
-                      );
-
-                      return (
-                        <tr
-                          key={student.info.id}
-                          className="border-b border-[#BDE8F5] hover:bg-[#BDE8F5]/10 transition-all"
-                        >
-                          <td className="p-3 text-[#0F2854] font-bold">
-                            {student.info.name}
-                          </td>
-                          <td className="p-3 text-[#4988C4]">
-                            {student.info.grade}
-                          </td>
-                          <td className="p-3 text-red-600 font-bold">
-                            {formatAmount(studentDue)}
-                          </td>
-                          <td className="p-3 text-green-600 font-bold">
-                            {formatAmount(studentPaid)}
-                          </td>
-                          <td className="p-3">
-                            {hasOverdue ? (
-                              <Badge className="bg-red-500">Overdue</Badge>
-                            ) : studentDue > 0 ? (
-                              <Badge className="bg-yellow-500">Pending</Badge>
-                            ) : (
-                              <Badge className="bg-green-500">Paid</Badge>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs text-[#1C4D8D] border-[#1C4D8D] hover:bg-[#BDE8F5]"
-                              onClick={() => setSelectedStudent(student.info.id)}
-                            >
-                              View
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
