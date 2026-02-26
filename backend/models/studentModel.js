@@ -1,27 +1,34 @@
-const mongoose = require('mongoose');
+// models/studentModel.js
+const mongoose = require("mongoose");
 
 const studentSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: [true, 'Please provide a student name'],
-      trim: true,
-    },
-    grade: {
-      type: String,
-      required: [true, 'Please provide a grade'],
-    },
-    parentId: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: [true, 'Please provide a parent ID'],
+      ref: "User",
+      required: true
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
+
+    studentId: { type: String, required: true, unique: true },
+
+    gender: { type: String, default: null},
+    
+    birthdate: { type: Date, default: null },
+
+    gradeLevel: { type: String, default: null },
+    section: { type: String, default: null },
+
+    parentName: { type: String, default: null },
+    parentContact: { type: String, default: null },
+    parentEmail: { type: String, default: null },
+
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active"
+    }
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Student', studentSchema);
+module.exports = mongoose.model("Student", studentSchema);

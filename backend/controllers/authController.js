@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/userModel");
+const Student = require("../models/studentModel");
 const crypto = require("crypto");
 const sendMail = require("../utils/mailer");
 const { generateToken } = require("../utils/jwt");
@@ -14,10 +15,18 @@ const registerUser = async (req, res) => {
       email,
       password,
       notificationMethod,
-      notificationContact
+      notificationContact,
+      studentID,
+      gender,
+      birthdate,
+      gradeLevel,
+      section,
+      userType
     } = req.body;
 
-    if (!firstName || !lastName || !email || !password || !notificationMethod || !notificationContact) {
+
+
+    if (!firstName || !lastName || !email || !password || !userType || (userType === "student" && (!studentID || !gender || !birthdate || !gradeLevel || !section))) {
       return res.status(400).json({ message: "All required fields must be filled" });
     }
 
@@ -27,17 +36,40 @@ const registerUser = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+    let user;
 
-    const user = await User.create({
-      firstName,
-      middleName,
-      lastName,
-      email,
-      password: hashedPassword,
-      notificationMethod,
-      notificationContact,
-      usertype: "parent"
-    });
+    if (userType === "parent") {
+      user = await User.create({
+        firstName,
+        middleName,
+        lastName,
+        email,
+        password: hashedPassword,
+        notificationMethod,
+        notificationContact,
+        userType: "parent"
+      });
+    } else if (userType === "student") {
+      user = await User.create({
+        firstName,
+        middleName,
+        lastName,
+        email,
+        password: hashedPassword,
+        userType: "student"
+      });
+
+      await Student.create({
+        userId: user._id,
+        studentId: studentID,
+        gender,
+        birthdate,
+        gradeLevel,
+        section
+      });
+    } else {
+      return res.status(400).json({ message: "Invalid user type" });
+    }
 
     res.status(201).json({
       message: "Account created successfully",
@@ -70,7 +102,7 @@ const loginUser = async (req, res) => {
     const token = generateToken({
       id: user._id,
       email: user.email,
-      usertype: user.usertype
+      userType: user.userType
     });
 
     res.json({
@@ -81,7 +113,7 @@ const loginUser = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        usertype: user.usertype
+        userType: user.userType
       }
     });
   } catch (err) {

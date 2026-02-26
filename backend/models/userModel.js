@@ -6,18 +6,21 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      default: null
     },
 
     middleName: {
       type: String,
       default: "",
       trim: true,
+      default: null
     },
 
     lastName: {
       type: String,
       required: true,
       trim: true,
+      default: null
     },
 
     email: {
@@ -26,37 +29,41 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      default: null
     },
 
     password: {
       type: String,
       required: true,
       minlength: 6,
+      default: null
     },
 
     notificationMethod: {
       type: String,
       enum: ["email", "phone"],
-      required: true,
+      default: null
     },
 
     notificationContact: {
       type: String,
-      required: true,
+      default: null
     },
 
     // 🔐 ROLE SYSTEM
-    usertype: {
+    userType: {
       type: String,
-      enum: ["parent", "admin"],
+      enum: ["parent", "admin", "student"],
       default: "parent",
     },
     
     resetCode: {
-      type: String
+      type: String,
+      default: null
     },
     resetCodeExpiry: {
-      type: Date
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }

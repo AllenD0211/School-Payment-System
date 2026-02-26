@@ -89,6 +89,7 @@ export function StudentTable({
   onEditStudent,
   onDeleteStudent,
 }: StudentTableProps) {
+  const [searchTerm, setSearchTerm] = useState("");
   const [isAddFeeDialogOpen, setIsAddFeeDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddNewStudentFeeDialogOpen, setIsAddNewStudentFeeDialogOpen] =
@@ -430,6 +431,17 @@ export function StudentTable({
     </div>
   );
 
+  const filteredStudents = students.filter((student) => {
+    const term = searchTerm.toLowerCase();
+
+    return (
+      student.name.toLowerCase().includes(term) ||
+      student.grade.toLowerCase().includes(term) ||
+      student.parentName.toLowerCase().includes(term) ||
+      student.feeStatus.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <>
       {/* ==================== Delete Confirmation Dialog ==================== */}
@@ -751,7 +763,7 @@ export function StudentTable({
 
       {/* ==================== Student Fee Records Table ==================== */}
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
           <div>
             <h3 className="text-2xl font-bold text-[#0F2854]">
               Student Fee Records
@@ -759,6 +771,25 @@ export function StudentTable({
             <p className="text-sm text-[#4988C4] mt-1">
               Manage and track student payments
             </p>
+          </div>
+
+          {/* 🔍 Search Input */}
+          <div className="relative w-full md:w-80">
+            <Input
+              type="text"
+              placeholder="Search student"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            <Users className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+
+            {searchTerm && (
+              <X
+                className="absolute right-3 top-3 w-4 h-4 text-gray-400 cursor-pointer"
+                onClick={() => setSearchTerm("")}
+              />
+            )}
           </div>
         </div>
 
@@ -799,7 +830,7 @@ export function StudentTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students.map((student, index) => (
+              {filteredStudents.map((student, index) => (
                 <TableRow
                   key={student.id}
                   className={index % 2 === 0 ? "bg-white" : "bg-[#F5FAFB]"}
@@ -957,12 +988,16 @@ export function StudentTable({
           </Table>
         </div>
 
-        {students.length === 0 && (
+        {filteredStudents.length === 0 && (
           <div className="text-center py-12">
             <GraduationCap className="w-12 h-12 text-[#BDE8F5] mx-auto mb-3" />
-            <p className="text-[#4988C4] font-medium">No students added yet</p>
+            <p className="text-[#4988C4] font-medium">
+              {searchTerm ? "No matching students found" : "No students added yet"}
+            </p>
             <p className="text-sm text-muted-foreground">
-              Click "Add Fee for Student" to get started
+              {searchTerm
+                ? "Try a different keyword"
+                : 'Click "Add Fee for Student" to get started'}
             </p>
           </div>
         )}

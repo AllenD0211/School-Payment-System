@@ -23,44 +23,49 @@ import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { GraduationCap, TrendingUp, AlertCircle, Bell } from "lucide-react";
 
-/* -------------------- Initial Data -------------------- */
-const initialStudents: Student[] = [
-  {
-    id: "1",
-    name: "Emma Johnson",
-    grade: "Grade 10",
-    parentName: "Michael Johnson",
-    parentContact: "+1 (555) 123-4567",
-    parentEmail: "michael.j@email.com",
-    feeAmount: 5000,
-    feeStatus: "paid",
-    dueDate: "2026-01-15",
-    type: "Tuition Fee",
-    notificationMethod: "sms",
-  },
-  {
-    id: "2",
-    name: "Liam Smith",
-    grade: "Grade 9",
-    parentName: "Sarah Smith",
-    parentContact: "+1 (555) 234-5678",
-    parentEmail: "sarah.s@email.com",
-    feeAmount: 5000,
-    feeStatus: "pending",
-    dueDate: "2026-01-20",
-    type: "Tuition Fee",
-    notificationMethod: "email",
-  },
-];
-
 /* -------------------- Component -------------------- */
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  const [students, setStudents] = useState<Student[]>(initialStudents);
+  const [students, setStudents] = useState<Student[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [sentReceipts, setSentReceipts] = useState<ReceiptFeedback[]>([]);
   const [events, setEvents] = useState<SchoolEvent[]>([]);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/admin/students",
+        );
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Transform backend data to match Student interface
+          const formattedStudents = data.students.map((student: any) => ({
+            id: student.studentId,
+            name: `${student.userId.firstName} ${student.userId.lastName}`,
+            grade: student.gradeLevel || "N/A",
+            parentName: student.parentName || "N/A",
+            parentContact: student.notificationContact || "",
+            parentEmail: student.email || "",
+            feeAmount: student.feeAmount || 0,
+            feeStatus: student.feeStatus || "pending",
+            dueDate: student.dueDate || "",
+            type: student.type || "Tuition Fee",
+            notificationMethod: student.notificationMethod || "email",
+          }));
+
+          setStudents(formattedStudents);
+        }
+      } catch (error) {
+        console.error("Failed to fetch students:", error);
+      }
+    };
+
+    fetchStudents();
+  }, []);
 
   /* -------------------- Load Events from localStorage -------------------- */
   useEffect(() => {
@@ -355,6 +360,7 @@ export default function AdminDashboard() {
 
           {/* Students Tab */}
           <TabsContent value="students">
+
             <StudentTable
               students={students}
               onNotifyParent={handleNotifyParent}
@@ -363,6 +369,7 @@ export default function AdminDashboard() {
               onEditStudent={handleEditStudent}
               onDeleteStudent={handleDeleteStudent}
             />
+
           </TabsContent>
 
           {/* Analytics Tab */}

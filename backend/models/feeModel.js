@@ -1,37 +1,33 @@
-const mongoose = require('mongoose');
+// models/feeModel.js
+const mongoose = require("mongoose");
 
-const feeSchema = new mongoose.Schema({
-  studentId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Student',
-    required: true 
-  },
-  amount: { 
-    type: Number, 
-    required: true 
-  },
-  status: { 
-    type: String, 
-    enum: ['paid', 'pending'],
-    required: true 
-  },
-  type: { 
-    type: String, 
-    required: true 
-  },
-  dueDate: { 
-    type: Date, 
-    required: true 
-  },
-  receiptId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Receipt'
-  },
-  description: String,
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
-});
+const feeSchema = new mongoose.Schema(
+  {
+    studentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Student",
+      required: true,
+      default: null
+    },
 
-module.exports = mongoose.model('Fee', feeSchema);
+    feeType: {
+      type: String,
+      enum: ["Tuition", "Miscellaneous", "Event", "Other"],
+      required: true,
+      default: null
+    },
+
+    amount: { type: Number, required: true, default: 0 },
+
+    status: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending"
+    },
+
+    dueDate: { type: Date, default: null }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Fee", feeSchema);

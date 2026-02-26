@@ -9,6 +9,7 @@ const studentsRoutes = require("./routes/studentRoutes");
 const eventRoutes = require("./routes/schoolEventRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const PORT = process.env.PORT || 5000;
 
@@ -34,6 +35,9 @@ app.use("/api/students", studentsRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// Admin routes
+app.use("/api/admin", adminRoutes);
 
 // Start server
 app.listen(PORT, () => {

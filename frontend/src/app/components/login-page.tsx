@@ -60,10 +60,12 @@ export default function LoginPage() {
           localStorage.setItem("rememberEmail", email);
         }
 
-        if (data.user.usertype === "admin") {
+        if (data.user.userType === "admin") {
           navigate("/admin");
-        } else {
+        } else if(data.user.userType === "parent") {
           navigate("/parent");
+        } else if(data.user.userType === "student") {
+          navigate("/student");
         }
       } else {
         toast.error(data.message);

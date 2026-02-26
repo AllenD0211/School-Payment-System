@@ -180,6 +180,7 @@ export default function CreateAccountPage() {
           section: formData.section.trim(),
           email: formData.email.trim(),
           password: formData.password,
+          userType: "student",
         };
       } else {
         payload = {
@@ -192,6 +193,7 @@ export default function CreateAccountPage() {
           password: formData.parentPassword,
           notificationMethod,
           notificationContact: notificationContact.trim(),
+          userType: "parent",
         };
       }
 
