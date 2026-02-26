@@ -4,8 +4,16 @@ const mongoose = require("mongoose");
 const eventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
-    description: String,
-    eventDate: Date
+    description: { type: String, default: null },
+
+    // Store both date and time together
+    eventDateTime: { type: Date, required: true },
+
+    // Event location
+    location: {
+      type: String,
+      required: true,
+    },
   },
   { timestamps: true }
 );

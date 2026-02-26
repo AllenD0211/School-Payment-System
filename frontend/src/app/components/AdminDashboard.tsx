@@ -69,11 +69,33 @@ export default function AdminDashboard() {
 
   /* -------------------- Load Events from localStorage -------------------- */
   useEffect(() => {
-    const saved = localStorage.getItem("school_events");
-    if (saved) {
-      setEvents(JSON.parse(saved));
-    }
+    fetchEvents();
   }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/events");
+      const data = await response.json();
+
+      if (data.success) {
+        const formatted = data.events.map((e: any) => {
+          const dateObj = new Date(e.eventDateTime);
+          return {
+            id: e._id,
+            title: e.title,
+            description: e.description,
+            location: e.location,
+            date: dateObj.toISOString().split("T")[0],
+            time: dateObj.toTimeString().slice(0, 5),
+          };
+        });
+
+        setEvents(formatted);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   /* -------------------- Student Handlers -------------------- */
   const handleRecordPayment = (studentId: string) => {
@@ -189,28 +211,53 @@ export default function AdminDashboard() {
   };
 
   /* -------------------- Event Handlers -------------------- */
-  const handleAddEvent = (event: Omit<SchoolEvent, "id">) => {
-    const newEvent = { ...event, id: Date.now().toString() };
-    const updatedEvents = [newEvent, ...events];
-    setEvents(updatedEvents);
-    localStorage.setItem("school_events", JSON.stringify(updatedEvents));
-    toast.success("New school event added");
+  const handleAddEvent = async (event: Omit<SchoolEvent, "id">) => {
+    try {
+      const response = await fetch("http://localhost:5000/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: event.title,
+          description: event.description,
+          location: event.location,
+          eventDateTime: new Date(`${event.date}T${event.time}`),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        fetchEvents(); // reload
+        toast.success("Event added to database");
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleUpdateEvent = (updatedEvent: SchoolEvent) => {
-    const updatedEvents = events.map((e) =>
-      e.id === updatedEvent.id ? updatedEvent : e
-    );
-    setEvents(updatedEvents);
-    localStorage.setItem("school_events", JSON.stringify(updatedEvents));
-    toast.success("Event updated");
+  const handleUpdateEvent = async (updatedEvent: SchoolEvent) => {
+    await fetch(`http://localhost:5000/api/events/${updatedEvent.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: updatedEvent.title,
+        description: updatedEvent.description,
+        location: updatedEvent.location,
+        eventDateTime: new Date(`${updatedEvent.date}T${updatedEvent.time}`),
+      }),
+    });
+
+    fetchEvents();
   };
 
-  const handleDeleteEvent = (id: string) => {
-    const updatedEvents = events.filter((e) => e.id !== id);
-    setEvents(updatedEvents);
-    localStorage.setItem("school_events", JSON.stringify(updatedEvents));
-    toast.success("Event deleted");
+  const handleDeleteEvent = async (id: string) => {
+    await fetch(`http://localhost:5000/api/events/${id}`, {
+      method: "DELETE",
+    });
+
+    fetchEvents();
   };
 
   /* -------------------- Stats -------------------- */

@@ -31,6 +31,7 @@ export interface SchoolEvent {
   title: string;
   description: string;
   date: string;
+  time: string; // ✅ NEW
   location: string;
 }
 
@@ -40,6 +41,94 @@ interface EventTableProps {
   onUpdateEvent: (event: SchoolEvent) => void;
   onDeleteEvent: (id: string) => void;
 }
+
+interface EventFormProps {
+  formData: {
+    title: string;
+    description: string;
+    date: string;
+    time: string;
+    location: string;
+  };
+  setFormData: React.Dispatch<
+    React.SetStateAction<{
+      title: string;
+      description: string;
+      date: string;
+      time: string;
+      location: string;
+    }>
+  >;
+}
+
+const EventForm = ({ formData, setFormData }: EventFormProps) => (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="title" className="text-[#0F2854] font-semibold">Event Title *</Label>
+        <Input
+          id="title"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          placeholder="Enter event title"
+          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+        />
+      </div>
+      <div>
+        <Label htmlFor="date" className="text-[#0F2854] font-semibold flex items-center gap-2">
+          <Calendar className="w-4 h-4" />
+          Event Date *
+        </Label>
+        <Input
+          id="date"
+          type="date"
+          value={formData.date}
+          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+        />
+      </div>
+      <div>
+      <Label
+        htmlFor="time"
+        className="text-[#0F2854] font-semibold flex items-center gap-2"
+      >
+        <Clock className="w-4 h-4" />
+        Event Time *
+      </Label>
+      <Input
+        id="time"
+        type="time"
+        value={formData.time}
+        onChange={(e) =>
+          setFormData({ ...formData, time: e.target.value })
+        }
+        className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+      />
+    </div>
+      <div>
+        <Label htmlFor="location" className="text-[#0F2854] font-semibold flex items-center gap-2">
+          <MapPin className="w-4 h-4" />
+          Location
+        </Label>
+        <Input
+          id="location"
+          value={formData.location}
+          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          placeholder="Enter location"
+          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+        />
+      </div>
+      <div>
+        <Label htmlFor="description" className="text-[#0F2854] font-semibold">Description</Label>
+        <Input
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Enter description"
+          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
+        />
+      </div>
+    </div>
+  );
 
 export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }: EventTableProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -51,18 +140,19 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
     title: "",
     description: "",
     date: "",
+    time: "",
     location: "",
   });
   const [searchQuery, setSearchQuery] = useState("");
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", date: "", location: "" });
+    setFormData({ title: "", description: "", date: "", time: "", location: "" });
     setEditingEvent(null);
   };
 
   const handleAddEvent = () => {
-    if (!formData.title || !formData.date) {
-      toast.error("Title and Date are required");
+    if (!formData.title || !formData.date || !formData.time) {
+      toast.error("Title, Date, and Time are required");
       return;
     }
 
@@ -78,6 +168,7 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
       title: event.title,
       description: event.description,
       date: event.date,
+      time: event.time,
       location: event.location,
     });
     setIsEditDialogOpen(true);
@@ -115,57 +206,6 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
     setEventToDelete(null);
   };
 
-  const EventForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="title" className="text-[#0F2854] font-semibold">Event Title *</Label>
-        <Input
-          id="title"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Enter event title"
-          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-        />
-      </div>
-      <div>
-        <Label htmlFor="date" className="text-[#0F2854] font-semibold flex items-center gap-2">
-          <Calendar className="w-4 h-4" />
-          Event Date *
-        </Label>
-        <Input
-          id="date"
-          type="date"
-          value={formData.date}
-          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-        />
-      </div>
-      <div>
-        <Label htmlFor="location" className="text-[#0F2854] font-semibold flex items-center gap-2">
-          <MapPin className="w-4 h-4" />
-          Location
-        </Label>
-        <Input
-          id="location"
-          value={formData.location}
-          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-          placeholder="Enter location"
-          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-        />
-      </div>
-      <div>
-        <Label htmlFor="description" className="text-[#0F2854] font-semibold">Description</Label>
-        <Input
-          id="description"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Enter description"
-          className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-        />
-      </div>
-    </div>
-  );
-
   // ---------------------- Filter & Sort ----------------------
   const filteredAndSortedEvents = useMemo(() => {
     const filtered = events.filter(
@@ -174,9 +214,11 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
         e.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
-    return filtered.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    return filtered.sort((a, b) => {
+      const aDateTime = new Date(`${a.date}T${a.time}`);
+      const bDateTime = new Date(`${b.date}T${b.time}`);
+      return aDateTime.getTime() - bDateTime.getTime();
+    });
   }, [events, searchQuery]);
 
   const isUpcoming = (date: string) => {
@@ -270,7 +312,10 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
                   Add New Event
                 </DialogTitle>
               </DialogHeader>
-              <EventForm />
+              <EventForm 
+                formData={formData}
+                setFormData={setFormData}
+              />
               <div className="flex gap-2 mt-4">
                 <Button onClick={handleAddEvent} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">Add Event</Button>
                 <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }} className="flex-1">
@@ -319,7 +364,10 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
                 Edit Event
               </DialogTitle>
             </DialogHeader>
-            <EventForm />
+            <EventForm 
+              formData={formData}
+              setFormData={setFormData}
+            />
             <div className="flex gap-2 mt-4">
               <Button onClick={handleEditEvent} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">Save Changes</Button>
               <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); resetForm(); }} className="flex-1">
@@ -359,7 +407,12 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
                     <TableCell>
                       <div className="flex items-center gap-2 text-[#4988C4]">
                         <Calendar className="w-4 h-4" />
-                        {new Date(event.date).toLocaleDateString()}
+                        <div className="flex flex-col">
+                          <span>{new Date(event.date).toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-500">
+                            {event.time}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>

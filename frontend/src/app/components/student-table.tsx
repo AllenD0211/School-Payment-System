@@ -435,13 +435,16 @@ export function StudentTable({
     const term = searchTerm.toLowerCase();
 
     return (
+      student.id.toLowerCase().includes(term) ||
       student.name.toLowerCase().includes(term) ||
       student.grade.toLowerCase().includes(term) ||
       student.parentName.toLowerCase().includes(term) ||
-      student.feeStatus.toLowerCase().includes(term)
+      student.feeStatus.toLowerCase().includes(term) ||
+      (student.type?.toLowerCase().includes(term) ?? false) ||
+      (student.dueDate?.toLowerCase().includes(term) ?? false)
     );
   });
-
+  
   return (
     <>
       {/* ==================== Delete Confirmation Dialog ==================== */}
