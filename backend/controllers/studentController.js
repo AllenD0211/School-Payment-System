@@ -13,9 +13,8 @@ const getStudents = async (req, res) => {
 // ADD student
 const addStudent = async (req, res) => {
   try {
-    const { name, grade, parentId, parentName, parentEmail, parentContact, fees } = req.body;
+    const { grade, parentId, parentName, parentEmail, parentContact, fees } = req.body;
     const student = await Student.create({
-      name,
       grade,
       parentId: parentId || null, // make it optional for testing
       parentName,

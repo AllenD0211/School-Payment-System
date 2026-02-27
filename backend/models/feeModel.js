@@ -12,7 +12,6 @@ const feeSchema = new mongoose.Schema(
 
     feeType: {
       type: String,
-      enum: ["Tuition", "Miscellaneous", "Event", "Other"],
       required: true,
       default: null
     },

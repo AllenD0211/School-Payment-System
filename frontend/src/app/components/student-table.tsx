@@ -81,6 +81,101 @@ interface StudentTableProps {
   onDeleteStudent: (studentId: string) => void;
 }
 
+interface FeeFormProps {
+  formData: {
+    feeType: string;
+    feeAmount: string;
+    dueDate: string;
+    feeStatus: "paid" | "pending" | "overdue";
+  };
+  handleInputChange: (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => void;
+}
+
+// ==================== Fee Form ====================
+const FeeForm = ({ formData, handleInputChange }: FeeFormProps) => (
+  <div className="space-y-5">
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <DollarSign className="w-5 h-5 text-[#1C4D8D]" />
+        <h3 className="font-semibold text-[#0F2854]">Fee Information</h3>
+      </div>
+      <Separator />
+
+      <div>
+        <Label
+          htmlFor="feeType"
+          className="text-[#0F2854] font-semibold"
+        >
+          Fee Type *
+        </Label>
+        <Input
+          id="feeType"
+          name="feeType"
+          type="text"
+          value={formData.feeType}
+          onChange={handleInputChange}
+          placeholder="e.g., Tuition Fee, Laboratory Fee, Sports Event"
+          className="mt-1.5"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="feeAmount" className="text-[#0F2854] font-semibold">
+          Fee Amount (₱) *
+        </Label>
+        <Input
+          id="feeAmount"
+          name="feeAmount"
+          type="text"
+          value={formData.feeAmount}
+          onChange={handleInputChange}
+          placeholder="Enter fee amount"
+          className="mt-1.5"
+        />
+      </div>
+
+      <div>
+        <Label
+          htmlFor="dueDate"
+          className="text-[#0F2854] font-semibold flex items-center gap-2"
+        >
+          <Calendar className="w-4 h-4" />
+          Due Date *
+        </Label>
+        <Input
+          id="dueDate"
+          name="dueDate"
+          type="date"
+          value={formData.dueDate}
+          onChange={handleInputChange}
+          className="mt-1.5"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">
+          Status
+        </Label>
+        <select
+          id="feeStatus"
+          name="feeStatus"
+          value={formData.feeStatus}
+          onChange={handleInputChange}
+          className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
+        >
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      </div>
+    </div>
+  </div>
+);
+
 export function StudentTable({
   students,
   onNotifyParent,
@@ -218,26 +313,43 @@ export function StudentTable({
     toast.success(`Fee added successfully for ${foundStudent.name}`);
   };
 
-  const handleAddFee = () => {
+  const handleAddFee = async () => {
     if (!selectedStudentForFee) return;
 
     const { feeType, feeAmount, dueDate } = formData;
+
     if (!feeType.trim() || !feeAmount || !dueDate) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    onAddFee(selectedStudentForFee.id, {
-      ...selectedStudentForFee,
-      type: feeType,
-      feeAmount: parseFloat(feeAmount),
-      dueDate,
-      feeStatus: formData.feeStatus,
-    });
+    try {
+      const response = await fetch("http://localhost:5000/api/fees", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          studentId: selectedStudentForFee.id,
+          feeType,
+          amount: parseFloat(feeAmount),
+          status: formData.feeStatus,
+          dueDate,
+        }),
+      });
 
-    resetForm();
-    setIsAddFeeDialogOpen(false);
-    toast.success("Fee added successfully");
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Fee added successfully");
+        resetForm();
+        setIsAddFeeDialogOpen(false);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error("Failed to add fee");
+    }
   };
 
   const handleEditClick = (student: Student) => {
@@ -350,87 +462,6 @@ export function StudentTable({
     }
   };
 
-  // ==================== Fee Form ====================
-  const FeeForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-5">
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-[#1C4D8D]" />
-          <h3 className="font-semibold text-[#0F2854]">Fee Information</h3>
-        </div>
-        <Separator />
-
-        <div>
-          <Label
-            htmlFor="feeType"
-            className="text-[#0F2854] font-semibold"
-          >
-            Fee Type *
-          </Label>
-          <Input
-            id="feeType"
-            name="feeType"
-            type="text"
-            value={formData.feeType}
-            onChange={handleInputChange}
-            placeholder="e.g., Tuition Fee, Laboratory Fee, Sports Event"
-            className="mt-1.5"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="feeAmount" className="text-[#0F2854] font-semibold">
-            Fee Amount (₱) *
-          </Label>
-          <Input
-            id="feeAmount"
-            name="feeAmount"
-            type="text"
-            value={formData.feeAmount}
-            onChange={handleInputChange}
-            placeholder="Enter fee amount"
-            className="mt-1.5"
-          />
-        </div>
-
-        <div>
-          <Label
-            htmlFor="dueDate"
-            className="text-[#0F2854] font-semibold flex items-center gap-2"
-          >
-            <Calendar className="w-4 h-4" />
-            Due Date *
-          </Label>
-          <Input
-            id="dueDate"
-            name="dueDate"
-            type="date"
-            value={formData.dueDate}
-            onChange={handleInputChange}
-            className="mt-1.5"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">
-            Status
-          </Label>
-          <select
-            id="feeStatus"
-            name="feeStatus"
-            value={formData.feeStatus}
-            onChange={handleInputChange}
-            className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
-          >
-            <option value="pending">Pending</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  );
-
   const filteredStudents = students.filter((student) => {
     const term = searchTerm.toLowerCase();
 
@@ -444,7 +475,7 @@ export function StudentTable({
       (student.dueDate?.toLowerCase().includes(term) ?? false)
     );
   });
-  
+
   return (
     <>
       {/* ==================== Delete Confirmation Dialog ==================== */}
@@ -658,7 +689,7 @@ export function StudentTable({
                   type="text"
                   value={newStudentFeeForm.studentId}
                   onChange={handleNewStudentFeeInputChange}
-                  placeholder="e.g., STU001 or 1"
+                  placeholder="e.g., 2021-3441"
                   className="mt-1.5"
                 />
               </div>
@@ -899,7 +930,10 @@ export function StudentTable({
                                   Add Fee for {selectedStudentForFee?.name}
                                 </DialogTitle>
                               </DialogHeader>
-                              <FeeForm isEdit={false} />
+                              <FeeForm
+                                formData={formData}
+                                handleInputChange={handleInputChange}
+                              />
                               <div className="flex gap-2 mt-6">
                                 <Button
                                   onClick={handleAddFee}
@@ -951,7 +985,10 @@ export function StudentTable({
                               Edit Fee for {editingStudent?.name}
                             </DialogTitle>
                           </DialogHeader>
-                          <FeeForm isEdit={true} />
+                          <FeeForm
+                            formData={formData}
+                            handleInputChange={handleInputChange}
+                          />
                           <div className="flex gap-2 mt-6">
                             <Button
                               onClick={handleEditStudent}

@@ -10,6 +10,7 @@ const eventRoutes = require("./routes/eventRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const feeRoutes = require("./routes/feeRoutes");
 
 const PORT = process.env.PORT || 5000;
 
@@ -38,6 +39,9 @@ app.use("/api/notifications", notificationRoutes);
 
 // Admin routes
 app.use("/api/admin", adminRoutes);
+
+// All users
+app.use("/api/fees", feeRoutes);
 
 // Start server
 app.listen(PORT, () => {
