@@ -9,9 +9,7 @@ const connectDB = async () => {
 
   try {
     await mongoose.connect(mongoURI, {
-      // These options are defaults now; you can omit them
-      // useNewUrlParser: true,
-      // useUnifiedTopology: true,
+      dbName: "student_fee_system"
     });
 
     console.log("✅ MongoDB connected successfully");

@@ -1,18 +1,12 @@
 const mongoose = require("mongoose");
 
-const studentSchema = new mongoose.Schema(
+const parentSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       unique: true
-    },
-    studentId: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true
     },
     firstName: {
       type: String,
@@ -34,17 +28,25 @@ const studentSchema = new mongoose.Schema(
       required: true,
       enum: ["Male", "Female", "Other"]
     },
-    birthdate: {
-      type: Date,
-      required: true
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true
     },
-    gradeSection: {
+    phoneNumber: {
       type: String,
       required: true,
       trim: true
-    }
+    },
+    children: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Student"
+      }
+    ]
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Student", studentSchema);
+module.exports = mongoose.model("Parent", parentSchema);
