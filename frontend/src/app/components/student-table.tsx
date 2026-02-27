@@ -1,24 +1,16 @@
-import { Badge } from "@/app/components/ui/badge";
-import { Button } from "@/app/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
+import { Button } from "@/app/components/ui/button";
+import { Badge } from "@/app/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/app/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -28,1020 +20,1034 @@ import {
   TableRow,
 } from "@/app/components/ui/table";
 import {
+  ArrowLeft,
   Bell,
-  DollarSign,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Pencil,
-  Trash2,
-  Mail,
-  MessageSquare,
-  X,
-  GraduationCap,
+  ReceiptText,
+  Search,
+  UserRound,
   Users,
-  FileText,
-  Calendar,
 } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
-import { Separator } from "@/app/components/ui/separator";
 
-export interface EventFee {
-  id: string;
-  eventName: string;
+type StudentListItem = {
+  student_doc_id: string;
+  student_user_id: string;
+  student_id: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  gender: string;
+  birth_date: string;
+  full_name: string;
+  gradeSection: string;
+  connected_to_parent: boolean;
+  parent_id: string | null;
+};
+
+type ParentInfo = {
+  parent_id: string;
+  father_name: string;
+  mother_name: string;
+  contact_number: string;
+  email: string;
+};
+
+type FeeRecord = {
+  fee_id: string;
+  fee_type: string;
   amount: number;
-  dueDate: string;
+  due_date: string;
   status: "paid" | "pending" | "overdue";
-}
+  created_at: string;
+};
 
-export interface Student {
-  id: string;
-  name: string;
-  grade: string;
-  parentName: string;
-  parentContact: string;
-  feeAmount: number;
-  feeStatus: "paid" | "pending" | "overdue";
-  dueDate: string;
-  description?: string;
-  type?: string;
-  parentEmail?: string;
-  notificationMethod?: "sms" | "email";
-  eventFees?: EventFee[];
-  birthDate?: string;
-}
-
-interface StudentTableProps {
-  students: Student[];
-  onNotifyParent: (studentId: string, method: "sms" | "email") => void;
-  onRecordPayment: (studentId: string) => void;
-  onAddFee: (studentId: string, fee: Omit<Student, "id">) => void;
-  onEditStudent: (studentId: string, student: Omit<Student, "id">) => void;
-  onDeleteStudent: (studentId: string) => void;
-}
-
-interface FeeFormProps {
-  formData: {
-    feeType: string;
-    feeAmount: string;
-    dueDate: string;
-    feeStatus: "paid" | "pending" | "overdue";
+type StudentDetail = {
+  student: {
+    student_doc_id: string;
+    student_user_id: string;
+    student_id: string;
+    first_name: string;
+    middle_name?: string;
+    last_name: string;
+    gender: string;
+    birth_date: string;
+    gradeSection: string;
+    parent_id: string | null;
   };
-  handleInputChange: (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => void;
-}
+  parent: ParentInfo | null;
+  fees: FeeRecord[];
+};
 
-// ==================== Fee Form ====================
-const FeeForm = ({ formData, handleInputChange }: FeeFormProps) => (
-  <div className="space-y-5">
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <DollarSign className="w-5 h-5 text-[#1C4D8D]" />
-        <h3 className="font-semibold text-[#0F2854]">Fee Information</h3>
-      </div>
-      <Separator />
+type FeeForm = {
+  fee_type: string;
+  amount: string;
+  due_date: string;
+  status: "pending" | "paid" | "overdue";
+};
 
-      <div>
-        <Label
-          htmlFor="feeType"
-          className="text-[#0F2854] font-semibold"
-        >
-          Fee Type *
-        </Label>
-        <Input
-          id="feeType"
-          name="feeType"
-          type="text"
-          value={formData.feeType}
-          onChange={handleInputChange}
-          placeholder="e.g., Tuition Fee, Laboratory Fee, Sports Event"
-          className="mt-1.5"
-        />
-      </div>
+const EMPTY_FEE_FORM: FeeForm = {
+  fee_type: "",
+  amount: "",
+  due_date: "",
+  status: "pending",
+};
 
-      <div>
-        <Label htmlFor="feeAmount" className="text-[#0F2854] font-semibold">
-          Fee Amount (₱) *
-        </Label>
-        <Input
-          id="feeAmount"
-          name="feeAmount"
-          type="text"
-          value={formData.feeAmount}
-          onChange={handleInputChange}
-          placeholder="Enter fee amount"
-          className="mt-1.5"
-        />
-      </div>
+const toStringValue = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
 
-      <div>
-        <Label
-          htmlFor="dueDate"
-          className="text-[#0F2854] font-semibold flex items-center gap-2"
-        >
-          <Calendar className="w-4 h-4" />
-          Due Date *
-        </Label>
-        <Input
-          id="dueDate"
-          name="dueDate"
-          type="date"
-          value={formData.dueDate}
-          onChange={handleInputChange}
-          className="mt-1.5"
-        />
-      </div>
+const composeName = (firstName?: string, middleName?: string, lastName?: string) => {
+  return [firstName, middleName, lastName]
+    .map((part) => toStringValue(part).trim())
+    .filter(Boolean)
+    .join(" ");
+};
 
-      <div>
-        <Label htmlFor="feeStatus" className="text-[#0F2854] font-semibold">
-          Status
-        </Label>
-        <select
-          id="feeStatus"
-          name="feeStatus"
-          value={formData.feeStatus}
-          onChange={handleInputChange}
-          className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
-        >
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="overdue">Overdue</option>
-        </select>
-      </div>
-    </div>
-  </div>
-);
+const normalizeStudentItem = (raw: any): StudentListItem => {
+  const rawUserId = raw?.student_user_id ?? raw?.userId;
+  const normalizedUserId =
+    rawUserId && typeof rawUserId === "object"
+      ? toStringValue(rawUserId?._id)
+      : toStringValue(rawUserId);
 
-export function StudentTable({
-  students,
-  onNotifyParent,
-  onRecordPayment,
-  onAddFee,
-  onEditStudent,
-  onDeleteStudent,
-}: StudentTableProps) {
+  const firstName = toStringValue(raw?.first_name ?? raw?.firstName);
+  const middleName = toStringValue(raw?.middle_name ?? raw?.middleName);
+  const lastName = toStringValue(raw?.last_name ?? raw?.lastName);
+
+  const parentIdRaw = raw?.parent_id ?? raw?.parentId ?? null;
+  const connectedRaw = raw?.connected_to_parent ?? raw?.connectedToParent;
+  const connected =
+    typeof connectedRaw === "boolean"
+      ? connectedRaw
+      : Boolean(parentIdRaw);
+
+  return {
+    student_doc_id: toStringValue(raw?._id),
+    student_user_id: normalizedUserId,
+    student_id: toStringValue(raw?.student_id ?? raw?.studentId),
+    first_name: firstName,
+    middle_name: middleName,
+    last_name: lastName,
+    gender: toStringValue(raw?.gender),
+    birth_date: toStringValue(raw?.birth_date ?? raw?.birthdate),
+    full_name:
+      toStringValue(raw?.full_name ?? raw?.fullName) ||
+      composeName(firstName, middleName, lastName),
+    gradeSection: toStringValue(raw?.gradeSection),
+    connected_to_parent: connected,
+    parent_id: parentIdRaw ? toStringValue(parentIdRaw) : null,
+  };
+};
+
+const normalizeFeeRecord = (raw: any): FeeRecord => ({
+  fee_id: toStringValue(raw?.fee_id ?? raw?._id ?? raw?.id),
+  fee_type: toStringValue(raw?.fee_type ?? raw?.feeType),
+  amount: Number(raw?.amount ?? 0),
+  due_date: toStringValue(raw?.due_date ?? raw?.dueDate),
+  status: toStringValue(raw?.status || "pending").toLowerCase() as FeeRecord["status"],
+  created_at: toStringValue(raw?.created_at ?? raw?.createdAt),
+});
+
+const fetchJsonSafe = async (url: string, init?: RequestInit) => {
+  const response = await fetch(url, init);
+  const rawText = await response.text();
+  let parsed: any = null;
+
+  try {
+    parsed = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    const compact = rawText.replace(/\s+/g, " ").trim();
+    const plain = compact.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return {
+      response,
+      data: {
+        success: false,
+        message:
+          plain ||
+          `Non-JSON response from ${url} (status ${response.status})`,
+      },
+    };
+  }
+
+  return { response, data: parsed };
+};
+
+const toReadableStatus = (status: FeeRecord["status"]) => {
+  if (status === "paid") return "Paid";
+  if (status === "overdue") return "Overdue";
+  return "Pending";
+};
+
+const formatDate = (dateValue?: string | Date) => {
+  if (!dateValue) return "-";
+  if (typeof dateValue === "string") {
+    const match = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+  }
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toISOString().split("T")[0];
+};
+
+const toInputDateValue = (dateValue?: string | Date) => {
+  if (!dateValue) return "";
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().split("T")[0];
+};
+
+export function StudentTable() {
+  const [students, setStudents] = useState<StudentListItem[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [selectedStudentUserId, setSelectedStudentUserId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<StudentDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAddFeeDialogOpen, setIsAddFeeDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isAddNewStudentFeeDialogOpen, setIsAddNewStudentFeeDialogOpen] =
-    useState(false);
-  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedStudentForNotify, setSelectedStudentForNotify] =
-    useState<Student | null>(null);
-  const [selectedStudentForDelete, setSelectedStudentForDelete] =
-    useState<Student | null>(null);
-  const [notificationMethod, setNotificationMethod] = useState<"sms" | "email">(
-    "sms",
-  );
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [selectedStudentForFee, setSelectedStudentForFee] =
-    useState<Student | null>(null);
+  const [gradeFilter, setGradeFilter] = useState("all");
+  const [isAddFeeModalOpen, setIsAddFeeModalOpen] = useState(false);
+  const [isSavingFee, setIsSavingFee] = useState(false);
+  const [editingFeeId, setEditingFeeId] = useState<string | null>(null);
+  const [feeForm, setFeeForm] = useState<FeeForm>(EMPTY_FEE_FORM);
 
-  const [formData, setFormData] = useState({
-    feeType: "",
-    feeAmount: "",
-    dueDate: "",
-    feeStatus: "pending" as "paid" | "pending" | "overdue",
-    eventFeeAmount: "",
-    eventFeeDueDate: "",
-  });
+  const loadStudents = async () => {
+    try {
+      setIsLoadingStudents(true);
+      const { response, data } = await fetchJsonSafe("http://localhost:5000/api/students");
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to load students");
+      }
 
-  const [newStudentFeeForm, setNewStudentFeeForm] = useState({
-    studentId: "",
-    feeType: "",
-    feeAmount: "",
-    dueDate: "",
-    feeStatus: "pending" as "paid" | "pending" | "overdue",
-  });
+      const studentRows = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.students)
+          ? data.students
+          : [];
 
-  const resetForm = () => {
-    setFormData({
-      feeType: "",
-      feeAmount: "",
-      dueDate: "",
-      feeStatus: "pending",
-      eventFeeAmount: "",
-      eventFeeDueDate: "",
+      setStudents(studentRows.map(normalizeStudentItem));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load students");
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
+
+  const loadStudentDetail = async (studentUserId: string) => {
+    try {
+      setIsLoadingDetail(true);
+      const selected = students.find((s) => s.student_user_id === studentUserId);
+      if (!selected) {
+        throw new Error("Student not found in current list.");
+      }
+
+      let studentDetail: StudentDetail["student"] = {
+        student_doc_id: selected.student_doc_id,
+        student_user_id: selected.student_user_id,
+        student_id: selected.student_id,
+        first_name: selected.first_name,
+        middle_name: selected.middle_name || "",
+        last_name: selected.last_name,
+        gender: selected.gender || "",
+        birth_date: selected.birth_date || "",
+        gradeSection: selected.gradeSection,
+        parent_id: selected.parent_id,
+      };
+
+      let parentDetail: ParentInfo | null = null;
+
+      try {
+        const { response, data } = await fetchJsonSafe(
+          `http://localhost:5000/api/students/${studentUserId}`,
+        );
+
+        if (response.ok && data?.student) {
+          studentDetail = {
+            student_doc_id: toStringValue(data.student._id ?? selected.student_doc_id),
+            student_user_id: toStringValue(data.student.userId ?? selected.student_user_id),
+            student_id: toStringValue(data.student.studentId ?? selected.student_id),
+            first_name: toStringValue(data.student.firstName ?? selected.first_name),
+            middle_name: toStringValue(data.student.middleName ?? selected.middle_name),
+            last_name: toStringValue(data.student.lastName ?? selected.last_name),
+            gender: toStringValue(data.student.gender),
+            birth_date: toStringValue(data.student.birthdate),
+            gradeSection: toStringValue(data.student.gradeSection ?? selected.gradeSection),
+            parent_id: data.student.parentId ? toStringValue(data.student.parentId) : selected.parent_id,
+          };
+        }
+      } catch {
+        // Keep list values if students detail endpoint is unavailable.
+      }
+
+      try {
+        const { response, data } = await fetchJsonSafe(
+          `http://localhost:5000/api/admin/students/${studentUserId}`,
+        );
+
+        if (response.ok && data?.student) {
+          studentDetail = {
+            student_doc_id: toStringValue(
+              data.student._id ?? data.student.student_doc_id ?? studentDetail.student_doc_id,
+            ),
+            student_user_id: toStringValue(
+              data.student.student_user_id ?? data.student.userId ?? studentDetail.student_user_id,
+            ),
+            student_id: toStringValue(
+              data.student.student_id ?? data.student.studentId ?? studentDetail.student_id,
+            ),
+            first_name: toStringValue(
+              data.student.first_name ?? data.student.firstName ?? studentDetail.first_name,
+            ),
+            middle_name: toStringValue(
+              data.student.middle_name ?? data.student.middleName ?? studentDetail.middle_name,
+            ),
+            last_name: toStringValue(
+              data.student.last_name ?? data.student.lastName ?? studentDetail.last_name,
+            ),
+            gender: toStringValue(data.student.gender ?? studentDetail.gender),
+            birth_date: toStringValue(
+              data.student.birth_date ?? data.student.birthdate ?? studentDetail.birth_date,
+            ),
+            gradeSection: toStringValue(data.student.gradeSection ?? studentDetail.gradeSection),
+            parent_id: data.student.parent_id
+              ? toStringValue(data.student.parent_id)
+              : data.student.parentId
+                ? toStringValue(data.student.parentId)
+                : studentDetail.parent_id,
+          };
+        }
+
+        if (data?.parent) {
+          parentDetail = {
+            parent_id: toStringValue(data.parent.parent_id ?? data.parent._id),
+            father_name: toStringValue(data.parent.father_name ?? data.parent.firstName),
+            mother_name: toStringValue(data.parent.mother_name ?? data.parent.middleName),
+            contact_number: toStringValue(data.parent.contact_number ?? data.parent.phoneNumber),
+            email: toStringValue(data.parent.email),
+          };
+        }
+      } catch {
+        // Fallback to students-table-only details when admin detail endpoint is unavailable.
+      }
+
+      let feeRows: FeeRecord[] = [];
+      try {
+        const { response, data } = await fetchJsonSafe(
+          `http://localhost:5000/api/fees/student/${studentUserId}`,
+        );
+        if (response.ok) {
+          const rows = Array.isArray(data?.fees) ? data.fees : [];
+          feeRows = rows.map(normalizeFeeRecord);
+        }
+      } catch {
+        // Keep empty fee list when fee endpoint is unavailable.
+      }
+
+      setDetail({
+        student: studentDetail,
+        parent: parentDetail,
+        fees: feeRows,
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load student details");
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  const refreshFeeTableOnly = async (studentUserId: string) => {
+    try {
+      const { response, data } = await fetchJsonSafe(
+        `http://localhost:5000/api/fees/student/${studentUserId}`,
+      );
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to refresh fee records");
+      }
+
+      setDetail((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          fees: Array.isArray(data.fees) ? data.fees.map(normalizeFeeRecord) : [],
+        };
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to refresh fee records");
+    }
+  };
+
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const gradeOptions = useMemo(() => {
+    const options = Array.from(new Set(students.map((student) => student.gradeSection)))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    return options;
+  }, [students]);
+
+  const filteredStudents = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    return students.filter((student) => {
+      if (gradeFilter !== "all" && student.gradeSection !== gradeFilter) {
+        return false;
+      }
+
+      if (!term) return true;
+
+      const searchable = [
+        student.student_id,
+        student.first_name,
+        student.middle_name,
+        student.last_name,
+        student.gradeSection,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(term);
     });
-    setSelectedStudentForFee(null);
+  }, [students, searchTerm, gradeFilter]);
+
+  const handleSelectStudent = async (studentUserId: string) => {
+    setSelectedStudentUserId(studentUserId);
+    setIsAddFeeModalOpen(false);
+    setEditingFeeId(null);
+    setFeeForm(EMPTY_FEE_FORM);
+    await loadStudentDetail(studentUserId);
   };
 
-  const resetNewStudentFeeForm = () => {
-    setNewStudentFeeForm({
-      studentId: "",
-      feeType: "",
-      feeAmount: "",
-      dueDate: "",
-      feeStatus: "pending",
+  const handleBackToList = () => {
+    setSelectedStudentUserId(null);
+    setDetail(null);
+    setIsAddFeeModalOpen(false);
+    setEditingFeeId(null);
+    setFeeForm(EMPTY_FEE_FORM);
+  };
+
+  const openEditFeeInline = (fee: FeeRecord) => {
+    setEditingFeeId(fee.fee_id);
+    setFeeForm({
+      fee_type: fee.fee_type,
+      amount: String(fee.amount || ""),
+      due_date: toInputDateValue(fee.due_date),
+      status: fee.status,
     });
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
-  ) => {
-    const { name, value } = e.target;
+  const handleCreateFee = async () => {
+    if (!selectedStudentUserId) return;
 
-    if (name === "feeStatus") {
-      setFormData((prev) => ({
-        ...prev,
-        feeStatus: value as "paid" | "pending" | "overdue",
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-  };
-
-  const handleNewStudentFeeInputChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
-  ) => {
-    const { name, value } = e.target;
-
-    if (name === "feeStatus") {
-      setNewStudentFeeForm((prev) => ({
-        ...prev,
-        feeStatus: value as "paid" | "pending" | "overdue",
-      }));
-    } else {
-      setNewStudentFeeForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-  };
-
-  const handleAddFeeForNewStudent = () => {
-    const { studentId, feeType, feeAmount, dueDate } = newStudentFeeForm;
-
-    if (!studentId.trim() || !feeType.trim() || !feeAmount || !dueDate) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    // Check if student ID exists in database
-    const foundStudent = students.find(
-      (student) => student.id.toLowerCase() === studentId.toLowerCase(),
-    );
-
-    if (!foundStudent) {
-      toast.error(`Student ID "${studentId}" not found in database`);
-      return;
-    }
-
-    // Add fee to the found student
-    onAddFee(foundStudent.id, {
-      ...foundStudent,
-      type: feeType,
-      feeAmount: parseFloat(feeAmount),
-      dueDate,
-      feeStatus: newStudentFeeForm.feeStatus,
-    });
-
-    resetNewStudentFeeForm();
-    setIsAddNewStudentFeeDialogOpen(false);
-    toast.success(`Fee added successfully for ${foundStudent.name}`);
-  };
-
-  const handleAddFee = async () => {
-    if (!selectedStudentForFee) return;
-
-    const { feeType, feeAmount, dueDate } = formData;
-
-    if (!feeType.trim() || !feeAmount || !dueDate) {
-      toast.error("Please fill in all required fields");
+    const parsedAmount = Number(feeForm.amount);
+    if (!feeForm.fee_type.trim() || Number.isNaN(parsedAmount) || !feeForm.due_date) {
+      toast.error("fee_type, amount, and due_date are required.");
       return;
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/fees", {
+      setIsSavingFee(true);
+      const { response, data } = await fetchJsonSafe("http://localhost:5000/api/fees", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          studentId: selectedStudentForFee.id,
-          feeType,
-          amount: parseFloat(feeAmount),
-          status: formData.feeStatus,
-          dueDate,
+          studentId: selectedStudentUserId,
+          feeType: feeForm.fee_type.trim(),
+          amount: parsedAmount,
+          dueDate: feeForm.due_date,
+          status: feeForm.status,
         }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success("Fee added successfully");
-        resetForm();
-        setIsAddFeeDialogOpen(false);
-      } else {
-        toast.error(data.message);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || "Failed to add fee");
       }
-    } catch (error) {
-      toast.error("Failed to add fee");
+
+      toast.success("Fee added successfully.");
+      setIsAddFeeModalOpen(false);
+      setFeeForm(EMPTY_FEE_FORM);
+      await refreshFeeTableOnly(selectedStudentUserId);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add fee");
+    } finally {
+      setIsSavingFee(false);
     }
   };
 
-  const handleEditClick = (student: Student) => {
-    setEditingStudent(student);
-    setFormData({
-      feeType: student.type || "",
-      feeAmount: student.feeAmount.toString(),
-      dueDate: student.dueDate,
-      feeStatus: student.feeStatus,
-      eventFeeAmount: "",
-      eventFeeDueDate: "",
-    });
-    setIsEditDialogOpen(true);
-  };
+  const handleSaveEditedFee = async (feeId: string) => {
+    if (!selectedStudentUserId) return;
 
-  const handleEditStudent = () => {
-    if (!editingStudent) return;
-    const { feeType, feeAmount, dueDate } = formData;
-    if (!feeType.trim() || !feeAmount || !dueDate) {
-      toast.error("Please fill in all required fields");
+    const parsedAmount = Number(feeForm.amount);
+    if (!feeForm.fee_type.trim() || Number.isNaN(parsedAmount) || !feeForm.due_date) {
+      toast.error("fee_type, amount, and due_date are required.");
       return;
     }
 
-    onEditStudent(editingStudent.id, {
-      ...editingStudent,
-      type: feeType,
-      feeAmount: parseFloat(feeAmount),
-      dueDate,
-      feeStatus: formData.feeStatus,
-    });
+    try {
+      const { response, data } = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feeType: feeForm.fee_type.trim(),
+          amount: parsedAmount,
+          dueDate: feeForm.due_date,
+          status: feeForm.status,
+        }),
+      });
 
-    resetForm();
-    setEditingStudent(null);
-    setIsEditDialogOpen(false);
-    toast.success("Fee updated successfully");
-  };
-
-  const handleDeleteClick = (student: Student) => {
-    setSelectedStudentForDelete(student);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (selectedStudentForDelete) {
-      onDeleteStudent(selectedStudentForDelete.id);
-      toast.success(`${selectedStudentForDelete.name} deleted successfully`);
-    }
-    setDeleteDialogOpen(false);
-    setSelectedStudentForDelete(null);
-  };
-
-  const handleNotifyClick = (student: Student) => {
-    setSelectedStudentForNotify(student);
-    setNotificationMethod(student.notificationMethod || "sms");
-    setNotifyDialogOpen(true);
-  };
-
-  const handleSendNotification = () => {
-    if (!selectedStudentForNotify) return;
-
-    if (notificationMethod === "sms") {
-      if (!selectedStudentForNotify.parentContact) {
-        toast.error("Phone number not available for this parent");
+      if (response.ok && data?.success) {
+        toast.success("Fee updated successfully.");
+        setEditingFeeId(null);
+        setFeeForm(EMPTY_FEE_FORM);
+        await refreshFeeTableOnly(selectedStudentUserId);
         return;
       }
-    } else if (notificationMethod === "email") {
-      if (!selectedStudentForNotify.parentEmail) {
-        toast.error("Email not available for this parent");
+
+      // Legacy fallback for servers that do not expose PUT /api/fees/:id:
+      // create a replacement row then delete the old row.
+      if (response.status === 404) {
+        const createFallback = await fetchJsonSafe("http://localhost:5000/api/fees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId: selectedStudentUserId,
+            feeType: feeForm.fee_type.trim(),
+            amount: parsedAmount,
+            dueDate: feeForm.due_date,
+            status: feeForm.status,
+          }),
+        });
+
+        if (!createFallback.response.ok || !createFallback.data?.success) {
+          throw new Error(createFallback.data?.message || "Failed to update fee");
+        }
+
+        const deleteOld = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}`, {
+          method: "DELETE",
+        });
+        if (!deleteOld.response.ok || !deleteOld.data?.success) {
+          toast.error("Fee was duplicated because old record could not be removed.");
+        } else {
+          toast.success("Fee updated successfully.");
+        }
+        setEditingFeeId(null);
+        setFeeForm(EMPTY_FEE_FORM);
+        await refreshFeeTableOnly(selectedStudentUserId);
         return;
       }
-    }
 
-    onNotifyParent(selectedStudentForNotify.id, notificationMethod);
-
-    const methodText = notificationMethod === "sms" ? "SMS" : "Email";
-    toast.success(
-      `Notification sent via ${methodText} to ${selectedStudentForNotify.parentName}`,
-    );
-
-    setNotifyDialogOpen(false);
-    setSelectedStudentForNotify(null);
-    setNotificationMethod("sms");
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "paid":
-        return (
-          <Badge className="bg-green-500 hover:bg-green-600">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Paid
-          </Badge>
-        );
-      case "pending":
-        return (
-          <Badge className="bg-yellow-500 hover:bg-yellow-600">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Pending
-          </Badge>
-        );
-      case "overdue":
-        return (
-          <Badge className="bg-red-500 hover:bg-red-600">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Overdue
-          </Badge>
-        );
-      default:
-        return null;
+      throw new Error(data?.message || "Failed to update fee");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update fee");
     }
   };
 
-  const filteredStudents = students.filter((student) => {
-    const term = searchTerm.toLowerCase();
+  const handleDeleteFee = async (feeId: string) => {
+    if (!selectedStudentUserId) return;
 
+    const confirmed = window.confirm("Are you sure you want to delete this fee record?");
+    if (!confirmed) return;
+
+    try {
+      let { response, data } = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}`, {
+        method: "DELETE",
+      });
+
+      if (response.status === 404) {
+        const fallback = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}/delete`, {
+          method: "POST",
+        });
+        response = fallback.response;
+        data = fallback.data;
+      }
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || "Failed to delete fee");
+      }
+
+      toast.success("Fee deleted.");
+      await refreshFeeTableOnly(selectedStudentUserId);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete fee");
+    }
+  };
+
+  const handleNotifyParent = async () => {
+    if (!detail?.student?.student_user_id) return;
+    if (!detail?.parent) {
+      toast.error("This student is not yet connected to a parent account.");
+      return;
+    }
+
+    const methodInput = window.prompt("Notify method: sms or email", "sms");
+    if (!methodInput) return;
+    const method = methodInput.trim().toLowerCase();
+    if (method !== "sms" && method !== "email") {
+      toast.error("Method must be sms or email.");
+      return;
+    }
+
+    try {
+      const { response, data } = await fetchJsonSafe(
+        `http://localhost:5000/api/admin/students/${detail.student.student_user_id}/notify`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ method }),
+        },
+      );
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to notify parent");
+      }
+
+      toast.success(`Parent notified via ${method.toUpperCase()}.`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to notify parent");
+    }
+  };
+
+  if (selectedStudentUserId) {
     return (
-      student.id.toLowerCase().includes(term) ||
-      student.name.toLowerCase().includes(term) ||
-      student.grade.toLowerCase().includes(term) ||
-      student.parentName.toLowerCase().includes(term) ||
-      student.feeStatus.toLowerCase().includes(term) ||
-      (student.type?.toLowerCase().includes(term) ?? false) ||
-      (student.dueDate?.toLowerCase().includes(term) ?? false)
-    );
-  });
-
-  return (
-    <>
-      {/* ==================== Delete Confirmation Dialog ==================== */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              Delete Student Record
-            </AlertDialogTitle>
-            <AlertDialogDescription className="mt-2">
-              {selectedStudentForDelete && (
-                <div className="space-y-2">
-                  <p>
-                    Are you sure you want to delete{" "}
-                    <span className="font-semibold">
-                      {selectedStudentForDelete.name}
-                    </span>
-                    ?
-                  </p>
-                  <div className="p-3 bg-red-50 rounded-lg border border-red-200 mt-3">
-                    <p className="text-sm">
-                      <span className="font-semibold">Student:</span>{" "}
-                      {selectedStudentForDelete.name}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-semibold">Parent:</span>{" "}
-                      {selectedStudentForDelete.parentName}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-semibold">Fee Amount:</span> ₱
-                      {selectedStudentForDelete.feeAmount.toLocaleString()}
-                    </p>
-                  </div>
-                  <p className="text-sm text-red-600 font-semibold mt-3">
-                    ⚠️ This action cannot be undone.
-                  </p>
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex gap-2 mt-4">
-            <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="flex-1 bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ==================== Notification Method Dialog ==================== */}
-      <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-[#1C4D8D]" />
-              Send Notification
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedStudentForNotify && (
-            <div className="space-y-6">
-              {/* Student Info */}
-              <div className="p-4 bg-gradient-to-br from-[#BDE8F5]/20 to-transparent rounded-lg border border-[#BDE8F5]">
-                <p className="text-sm">
-                  <span className="font-semibold text-[#0F2854]">Student:</span>{" "}
-                  <span className="text-[#1C4D8D]">
-                    {selectedStudentForNotify.name}
-                  </span>
-                </p>
-                <p className="text-sm mt-1">
-                  <span className="font-semibold text-[#0F2854]">Parent:</span>{" "}
-                  <span className="text-[#1C4D8D]">
-                    {selectedStudentForNotify.parentName}
-                  </span>
-                </p>
-                <p className="text-sm mt-1">
-                  <span className="font-semibold text-[#0F2854]">Fee:</span>{" "}
-                  <span className="text-[#1C4D8D]">
-                    ₱{selectedStudentForNotify.feeAmount.toLocaleString()}
-                  </span>
-                </p>
-                <p className="text-sm mt-1">
-                  <span className="font-semibold text-[#0F2854]">Status:</span>{" "}
-                  {getStatusBadge(selectedStudentForNotify.feeStatus)}
-                </p>
-              </div>
-
-              {/* Notification Method Selection */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold text-[#0F2854]">
-                  Select Notification Method:
-                </Label>
-
-                {/* SMS Option */}
-                <div
-                  className="flex items-start space-x-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition-all"
-                  onClick={() => setNotificationMethod("sms")}
-                >
-                  <input
-                    type="radio"
-                    name="method"
-                    value="sms"
-                    checked={notificationMethod === "sms"}
-                    onChange={() => setNotificationMethod("sms")}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-blue-600" />
-                      <span className="font-semibold text-sm text-[#0F2854]">
-                        SMS
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Send via SMS to {selectedStudentForNotify.parentContact}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Email Option */}
-                <div
-                  className="flex items-start space-x-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-400 transition-all"
-                  onClick={() => setNotificationMethod("email")}
-                >
-                  <input
-                    type="radio"
-                    name="method"
-                    value="email"
-                    checked={notificationMethod === "email"}
-                    onChange={() => setNotificationMethod("email")}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-green-600" />
-                      <span className="font-semibold text-sm text-[#0F2854]">
-                        Email
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Send via Email to{" "}
-                      {selectedStudentForNotify.parentEmail || "Not provided"}
-                    </p>
-                    {!selectedStudentForNotify.parentEmail && (
-                      <p className="text-xs text-red-500 mt-1">
-                        ⚠️ No email address on file
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 mt-6">
-                <Button
-                  onClick={handleSendNotification}
-                  className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]"
-                >
-                  Send {notificationMethod === "sms" ? "SMS" : "Email"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setNotifyDialogOpen(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ==================== Add Fee for New Student Dialog ==================== */}
-      <Dialog
-        open={isAddNewStudentFeeDialogOpen}
-        onOpenChange={setIsAddNewStudentFeeDialogOpen}
-      >
-        <DialogTrigger asChild>
-          <Button className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] mb-6">
-            <Plus className="w-4 h-4 mr-2" /> Add fee for student
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-[#1C4D8D]" />
-              Add Fee for Student
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            {/* Student Identification Section */}
-            <div className="space-y-4">
-              <Separator />
-
-              <div>
-                <Label
-                  htmlFor="studentId"
-                  className="text-[#0F2854] font-semibold"
-                >
-                  Student ID *
-                </Label>
-                <Input
-                  id="studentId"
-                  name="studentId"
-                  type="text"
-                  value={newStudentFeeForm.studentId}
-                  onChange={handleNewStudentFeeInputChange}
-                  placeholder="e.g., 2021-3441"
-                  className="mt-1.5"
-                />
-              </div>
-            </div>
-
-            {/* Fee Information Section */}
-            <div className="space-y-4">
-              <div>
-                <Label
-                  htmlFor="feeType"
-                  className="text-[#0F2854] font-semibold"
-                >
-                  Fee Type *
-                </Label>
-                <Input
-                  id="feeType"
-                  name="feeType"
-                  type="text"
-                  value={newStudentFeeForm.feeType}
-                  onChange={handleNewStudentFeeInputChange}
-                  placeholder="e.g., Tuition Fee, Laboratory Fee, Sports Event"
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="newFeeAmount"
-                  className="text-[#0F2854] font-semibold"
-                >
-                  Fee Amount (₱) *
-                </Label>
-                <Input
-                  id="newFeeAmount"
-                  name="feeAmount"
-                  type="text"
-                  value={newStudentFeeForm.feeAmount}
-                  onChange={handleNewStudentFeeInputChange}
-                  placeholder="Enter fee amount"
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="newDueDate"
-                  className="text-[#0F2854] font-semibold flex items-center gap-2"
-                >
-                  <Calendar className="w-4 h-4" />
-                  Due Date *
-                </Label>
-                <Input
-                  id="newDueDate"
-                  name="dueDate"
-                  type="date"
-                  value={newStudentFeeForm.dueDate}
-                  onChange={handleNewStudentFeeInputChange}
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="newFeeStatus"
-                  className="text-[#0F2854] font-semibold"
-                >
-                  Status
-                </Label>
-                <select
-                  id="newFeeStatus"
-                  name="feeStatus"
-                  value={newStudentFeeForm.feeStatus}
-                  onChange={handleNewStudentFeeInputChange}
-                  className="w-full p-2.5 border rounded-md text-sm mt-1.5 border-gray-300 focus:border-[#1C4D8D]"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 mt-6">
-              <Button
-                onClick={handleAddFeeForNewStudent}
-                className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
-              >
-                <Plus className="w-4 h-4 mr-2" /> Add Fee
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  resetNewStudentFeeForm();
-                  setIsAddNewStudentFeeDialogOpen(false);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
+      <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-[#BDE8F5]">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={handleBackToList}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Student List
+            </Button>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[#4988C4]">
+                Student Profile
+              </p>
+              <h2 className="text-xl font-bold text-[#0F2854]">
+                {detail?.student
+                  ? composeName(
+                      detail.student.first_name,
+                      detail.student.middle_name,
+                      detail.student.last_name,
+                    ) || detail.student.student_id
+                  : "Student Details"}
+              </h2>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* ==================== Student Fee Records Table ==================== */}
-      <Card className="p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-          <div>
-            <h3 className="text-2xl font-bold text-[#0F2854]">
-              Student Fee Records
-            </h3>
-            <p className="text-sm text-[#4988C4] mt-1">
-              Manage and track student payments
-            </p>
-          </div>
-
-          {/* 🔍 Search Input */}
-          <div className="relative w-full md:w-80">
-            <Input
-              type="text"
-              placeholder="Search student"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-            <Users className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-
-            {searchTerm && (
-              <X
-                className="absolute right-3 top-3 w-4 h-4 text-gray-400 cursor-pointer"
-                onClick={() => setSearchTerm("")}
-              />
-            )}
-          </div>
         </div>
 
-        <div className="rounded-lg border border-[#BDE8F5] overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-gradient-to-r from-[#BDE8F5]/10 to-transparent">
-              <TableRow className="border-b border-[#BDE8F5]">
-                <TableHead className="text-[#0F2854] font-bold">
-                  Student ID
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Student Name
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Grade
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Parent Name
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Contact Info
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Fee Type
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Amount
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Due Date
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Status
-                </TableHead>
-                <TableHead className="text-[#0F2854] font-bold">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStudents.map((student, index) => (
-                <TableRow
-                  key={student.id}
-                  className={index % 2 === 0 ? "bg-white" : "bg-[#F5FAFB]"}
+        {isLoadingDetail && (
+          <div className="text-sm text-[#4988C4] py-8">Loading student details...</div>
+        )}
+
+        {!isLoadingDetail && detail && (
+          <div className="space-y-6">
+            <Card className="p-5 border border-[#BDE8F5] rounded-xl bg-gradient-to-br from-[#F7FBFF] to-white">
+              <div className="flex items-center gap-2 mb-4">
+                <UserRound className="w-5 h-5 text-[#1C4D8D]" />
+                <h3 className="text-xl font-bold text-[#0F2854]">Student Details</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div className="space-y-3">
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Student ID:</span>{" "}
+                    {detail.student.student_id || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">First Name:</span>{" "}
+                    {detail.student.first_name || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Middle Name:</span>{" "}
+                    {detail.student.middle_name || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Last Name:</span>{" "}
+                    {detail.student.last_name || "Not Provided"}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Gender:</span>{" "}
+                    {detail.student.gender || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Birth Date:</span>{" "}
+                    {(() => {
+                      if (!detail.student.birth_date) return "Not Provided";
+                      const formatted = formatDate(detail.student.birth_date);
+                      return formatted === "-" ? "Not Provided" : formatted;
+                    })()}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Grade &amp; Section:</span>{" "}
+                    {detail.student.gradeSection || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Parent Status:</span>{" "}
+                    {detail.student.parent_id ? "Connected" : "Not Connected"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-5 border border-[#BDE8F5] rounded-xl bg-gradient-to-br from-[#F7FBFF] to-white">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-[#1C4D8D]" />
+                <h3 className="text-xl font-bold text-[#0F2854]">Parent Details</h3>
+              </div>
+              {detail.parent ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Father Name:</span>{" "}
+                    {detail.parent.father_name || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Mother Name:</span>{" "}
+                    {detail.parent.mother_name || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Contact Number:</span>{" "}
+                    {detail.parent.contact_number || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Email:</span>{" "}
+                    {detail.parent.email || "Not Provided"}
+                  </p>
+                </div>
+              ) : (
+                <p className="inline-flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <span aria-hidden="true">⚠</span>
+                  Not yet connected to a parent account
+                </p>
+              )}
+            </Card>
+
+            <Card className="p-5 border border-[#BDE8F5] rounded-xl bg-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <ReceiptText className="w-5 h-5 text-[#1C4D8D]" />
+                  <h3 className="text-xl font-bold text-[#0F2854]">Fee Records</h3>
+                </div>
+                <Button
+                  onClick={() => {
+                    setIsAddFeeModalOpen(true);
+                    setEditingFeeId(null);
+                    setFeeForm(EMPTY_FEE_FORM);
+                  }}
+                  className="bg-[#1C4D8D] hover:bg-[#0F2854]"
                 >
-                  <TableCell className="font-semibold text-[#1C4D8D]">
-                    {student.id}
-                  </TableCell>
-                  <TableCell className="font-semibold text-[#0F2854]">
-                    {student.name}
-                  </TableCell>
-                  <TableCell className="text-[#4988C4]">
-                    {student.grade}
-                  </TableCell>
-                  <TableCell className="text-[#0F2854]">
-                    {student.parentName}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {student.notificationMethod === "sms" ? (
-                        <p className="text-[#4988C4]">
-                          {student.parentContact}
-                        </p>
-                      ) : (
-                        <p className="text-[#4988C4]">{student.parentEmail}</p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-[#0F2854]">
-                    {student.type || "-"}
-                  </TableCell>
-                  <TableCell className="font-bold text-[#1C4D8D]">
-                    ₱{student.feeAmount.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-[#4988C4]">
-                    {student.dueDate}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(student.feeStatus)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1.5">
-                      {student.feeStatus !== "paid" && (
+                  Add Fee
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-[#BDE8F5] overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#F1F7FD]">
+                    <TableHead>Fee Type</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detail.fees.map((fee) => (
+                    <TableRow key={fee.fee_id}>
+                      {editingFeeId === fee.fee_id ? (
                         <>
-                          <Dialog
-                            open={isAddFeeDialogOpen}
-                            onOpenChange={setIsAddFeeDialogOpen}
-                          >
-                            <DialogTrigger asChild>
+                          <TableCell>
+                            <Input
+                              value={feeForm.fee_type}
+                              onChange={(e) =>
+                                setFeeForm((prev) => ({ ...prev, fee_type: e.target.value }))
+                              }
+                              placeholder="Fee type"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={feeForm.amount}
+                              onChange={(e) =>
+                                setFeeForm((prev) => ({ ...prev, amount: e.target.value }))
+                              }
+                              placeholder="Amount"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={feeForm.due_date}
+                              onChange={(e) =>
+                                setFeeForm((prev) => ({ ...prev, due_date: e.target.value }))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <select
+                              value={feeForm.status}
+                              onChange={(e) =>
+                                setFeeForm((prev) => ({
+                                  ...prev,
+                                  status: e.target.value as FeeForm["status"],
+                                }))
+                              }
+                              className="h-9 rounded-md border px-3 text-sm w-full"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="paid">Paid</option>
+                            </select>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveEditedFee(fee.fee_id)}
+                                className="bg-[#1C4D8D] hover:bg-[#0F2854]"
+                              >
+                                Save
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                title="Add Fee"
                                 onClick={() => {
-                                  setSelectedStudentForFee(student);
-                                  resetForm();
+                                  setEditingFeeId(null);
+                                  setFeeForm(EMPTY_FEE_FORM);
                                 }}
                               >
-                                <Plus className="w-4 h-4" />
+                                Cancel
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle className="text-2xl flex items-center gap-2">
-                                  <Plus className="w-6 h-6 text-[#1C4D8D]" />
-                                  Add Fee for {selectedStudentForFee?.name}
-                                </DialogTitle>
-                              </DialogHeader>
-                              <FeeForm
-                                formData={formData}
-                                handleInputChange={handleInputChange}
-                              />
-                              <div className="flex gap-2 mt-6">
-                                <Button
-                                  onClick={handleAddFee}
-                                  className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
-                                >
-                                  <Plus className="w-4 h-4 mr-2" /> Add Fee
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    setIsAddFeeDialogOpen(false);
-                                    resetForm();
-                                  }}
-                                  className="flex-1"
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleNotifyClick(student)}
-                            title="Send Notification"
-                          >
-                            <Bell className="w-4 h-4" />
-                          </Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell>{fee.fee_type || "Not Provided"}</TableCell>
+                          <TableCell>₱{Number(fee.amount).toLocaleString()}</TableCell>
+                          <TableCell>{formatDate(fee.due_date)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              className={
+                                fee.status === "paid"
+                                  ? "bg-green-600"
+                                  : fee.status === "overdue"
+                                    ? "bg-red-600"
+                                    : "bg-yellow-500"
+                              }
+                            >
+                              {toReadableStatus(fee.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditFeeInline(fee)}
+                                className="border-[#4988C4] text-[#1C4D8D]"
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteFee(fee.fee_id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                Delete
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleNotifyParent}
+                                className="border-[#4988C4] text-[#1C4D8D]"
+                              >
+                                <Bell className="w-3.5 h-3.5 mr-1" />
+                                Notify Parent
+                              </Button>
+                            </div>
+                          </TableCell>
                         </>
                       )}
-                      <Dialog
-                        open={isEditDialogOpen}
-                        onOpenChange={setIsEditDialogOpen}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditClick(student)}
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle className="text-2xl flex items-center gap-2">
-                              <Pencil className="w-6 h-6 text-[#1C4D8D]" />
-                              Edit Fee for {editingStudent?.name}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <FeeForm
-                            formData={formData}
-                            handleInputChange={handleInputChange}
-                          />
-                          <div className="flex gap-2 mt-6">
-                            <Button
-                              onClick={handleEditStudent}
-                              className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-2" /> Save
-                              Changes
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setIsEditDialogOpen(false);
-                                setEditingStudent(null);
-                                resetForm();
-                              }}
-                              className="flex-1"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteClick(student)}
-                        className="text-red-600 hover:text-red-700"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    </TableRow>
+                  ))}
 
-        {filteredStudents.length === 0 && (
-          <div className="text-center py-12">
-            <GraduationCap className="w-12 h-12 text-[#BDE8F5] mx-auto mb-3" />
-            <p className="text-[#4988C4] font-medium">
-              {searchTerm ? "No matching students found" : "No students added yet"}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {searchTerm
-                ? "Try a different keyword"
-                : 'Click "Add Fee for Student" to get started'}
-            </p>
+                  {detail.fees.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-[#4988C4] py-6">
+                        No fee records found for this student.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              </div>
+            </Card>
+
+            <Dialog
+              open={isAddFeeModalOpen}
+              onOpenChange={(open) => {
+                setIsAddFeeModalOpen(open);
+                if (!open) setFeeForm(EMPTY_FEE_FORM);
+              }}
+            >
+              <DialogContent className="max-w-lg bg-white">
+                <DialogHeader>
+                  <DialogTitle className="text-[#0F2854]">Add Fee Record</DialogTitle>
+                  <DialogDescription>Enter fee details for this student.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Input
+                    placeholder="Fee Type"
+                    value={feeForm.fee_type}
+                    onChange={(e) =>
+                      setFeeForm((prev) => ({ ...prev, fee_type: e.target.value }))
+                    }
+                  />
+                  <Input
+                    placeholder="Amount"
+                    type="number"
+                    value={feeForm.amount}
+                    onChange={(e) =>
+                      setFeeForm((prev) => ({ ...prev, amount: e.target.value }))
+                    }
+                  />
+                  <Input
+                    placeholder="Due Date"
+                    type="date"
+                    value={feeForm.due_date}
+                    onChange={(e) =>
+                      setFeeForm((prev) => ({ ...prev, due_date: e.target.value }))
+                    }
+                  />
+                  <select
+                    value={feeForm.status}
+                    onChange={(e) =>
+                      setFeeForm((prev) => ({
+                        ...prev,
+                        status: e.target.value as FeeForm["status"],
+                      }))
+                    }
+                    className="h-9 rounded-md border px-3 text-sm w-full"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddFeeModalOpen(false);
+                      setFeeForm(EMPTY_FEE_FORM);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateFee}
+                    disabled={isSavingFee}
+                    className="bg-[#1C4D8D] hover:bg-[#0F2854]"
+                  >
+                    {isSavingFee ? "Saving..." : "Save Fee"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </Card>
-    </>
+    );
+  }
+
+  return (
+    <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-[#BDE8F5]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[#4988C4]">
+            Student Fee Management
+          </p>
+          <h3 className="text-3xl font-bold text-[#0F2854]">Student List</h3>
+          <p className="text-sm text-[#4988C4] mt-1">
+            Select a student to open full profile and fee records.
+          </p>
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <div className="relative w-full md:w-96">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search student_id, first_name, last_name, gradeSection"
+              className="pl-9"
+            />
+          </div>
+          <select
+            value={gradeFilter}
+            onChange={(e) => setGradeFilter(e.target.value)}
+            className="h-9 rounded-md border px-3 text-sm min-w-[220px] border-[#BDE8F5] bg-[#F7FBFF]"
+          >
+            <option value="all">All gradeSection</option>
+            {gradeOptions.map((grade) => (
+              <option key={grade} value={grade}>
+                {grade}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {isLoadingStudents && (
+        <div className="text-sm text-[#4988C4] py-8">Loading students...</div>
+      )}
+
+      {!isLoadingStudents && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredStudents.map((student) => (
+            <button
+              key={student.student_user_id}
+              type="button"
+              onClick={() => handleSelectStudent(student.student_user_id)}
+              className="text-left"
+            >
+              <Card className="p-0 border border-[#BDE8F5] hover:shadow-xl hover:border-[#4988C4] transition-all h-full overflow-hidden">
+                <div className="px-4 py-2 bg-gradient-to-r from-[#E6F4FB] to-transparent border-b border-[#BDE8F5]">
+                  <p className="text-xs text-[#4988C4] font-semibold">
+                    STUDENT ID
+                  </p>
+                  <p className="text-sm font-bold text-[#1C4D8D]">
+                    {student.student_id || "-"}
+                  </p>
+                </div>
+                <div className="p-4">
+                <h4 className="text-lg font-bold text-[#0F2854]">
+                  {composeName(student.first_name, student.middle_name, student.last_name) || student.full_name || "-"}
+                </h4>
+                <p className="text-sm text-[#1C4D8D] mt-1">{student.gradeSection || "-"}</p>
+                <div className="mt-3">
+                  <Badge
+                    className={
+                      student.connected_to_parent ? "bg-green-600" : "bg-yellow-500"
+                    }
+                  >
+                    {student.connected_to_parent ? "Connected" : "Not Connected"}
+                  </Badge>
+                </div>
+                </div>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!isLoadingStudents && filteredStudents.length === 0 && (
+        <div className="text-center text-[#4988C4] py-10">
+          No students found for current search/filter.
+        </div>
+      )}
+    </Card>
   );
 }

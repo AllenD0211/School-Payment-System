@@ -28,12 +28,6 @@ const parentSchema = new mongoose.Schema(
       required: true,
       enum: ["Male", "Female", "Other"]
     },
-    email: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true
-    },
     phoneNumber: {
       type: String,
       required: true,
@@ -42,7 +36,7 @@ const parentSchema = new mongoose.Schema(
     children: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Student"
+        ref: "User"
       }
     ]
   },

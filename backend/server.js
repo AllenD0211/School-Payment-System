@@ -11,6 +11,7 @@ const receiptRoutes = require("./routes/receiptRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const feeRoutes = require("./routes/feeRoutes");
+const parentRoutes = require("./routes/parentRoutes");
 
 const PORT = process.env.PORT || 5000;
 
@@ -42,6 +43,14 @@ app.use("/api/admin", adminRoutes);
 
 // All users
 app.use("/api/fees", feeRoutes);
+app.use("/api/parents", parentRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
 
 // Start server
 app.listen(PORT, () => {

@@ -5,7 +5,6 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Separator } from "@/app/components/ui/separator";
-import { Badge } from "@/app/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/app/components/ui/dialog";
 import {
   AlertDialog,
@@ -37,9 +36,9 @@ export interface SchoolEvent {
 
 interface EventTableProps {
   events: SchoolEvent[];
-  onAddEvent: (event: Omit<SchoolEvent, "id">) => void;
-  onUpdateEvent: (event: SchoolEvent) => void;
-  onDeleteEvent: (id: string) => void;
+  onAddEvent: (event: Omit<SchoolEvent, "id">) => Promise<boolean>;
+  onUpdateEvent: (event: SchoolEvent) => Promise<boolean>;
+  onDeleteEvent: (id: string) => Promise<boolean>;
 }
 
 interface EventFormProps {
@@ -150,13 +149,14 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
     setEditingEvent(null);
   };
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!formData.title || !formData.date || !formData.time) {
       toast.error("Title, Date, and Time are required");
       return;
     }
 
-    onAddEvent({ ...formData });
+    const success = await onAddEvent({ ...formData });
+    if (!success) return;
     resetForm();
     setIsAddDialogOpen(false);
     toast.success("Event added successfully");
@@ -174,18 +174,19 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
     setIsEditDialogOpen(true);
   };
 
-  const handleEditEvent = () => {
+  const handleEditEvent = async () => {
     if (!editingEvent) return;
 
-    if (!formData.title || !formData.date) {
-      toast.error("Title and Date are required");
+    if (!formData.title || !formData.date || !formData.time) {
+      toast.error("Title, Date, and Time are required");
       return;
     }
 
-    onUpdateEvent({
+    const success = await onUpdateEvent({
       ...editingEvent,
       ...formData,
     });
+    if (!success) return;
 
     resetForm();
     setIsEditDialogOpen(false);
@@ -197,9 +198,10 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (eventToDelete) {
-      onDeleteEvent(eventToDelete.id);
+      const success = await onDeleteEvent(eventToDelete.id);
+      if (!success) return;
       toast.success("Event deleted successfully");
     }
     setDeleteDialogOpen(false);
@@ -236,13 +238,6 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
     today.setHours(0, 0, 0, 0);
     eventDate.setHours(0, 0, 0, 0);
     return eventDate.getTime() < today.getTime();
-  };
-
-  const daysUntil = (date: string) => {
-    const eventDate = new Date(date);
-    const today = new Date();
-    const diff = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diff;
   };
 
   const upcomingCount = events.filter(e => isUpcoming(e.date)).length;
@@ -386,14 +381,13 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
                 <TableHead className="text-[#0F2854] font-bold">Date</TableHead>
                 <TableHead className="text-[#0F2854] font-bold">Location</TableHead>
                 <TableHead className="text-[#0F2854] font-bold">Description</TableHead>
-                <TableHead className="text-[#0F2854] font-bold">Status</TableHead>
                 <TableHead className="text-[#0F2854] font-bold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAndSortedEvents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={5} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <Calendar className="w-8 h-8 text-[#BDE8F5]" />
                       <p className="text-[#4988C4]">No events found</p>
@@ -422,20 +416,6 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-[#0F2854]">{event.description || '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {isPast(event.date) ? (
-                          <Badge className="bg-gray-500">Past</Badge>
-                        ) : isUpcoming(event.date) ? (
-                          <Badge className="bg-green-500 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            In {daysUntil(event.date)} days
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-blue-500">Scheduled</Badge>
-                        )}
-                      </div>
-                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button 

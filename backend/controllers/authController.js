@@ -168,7 +168,6 @@ const registerUser = async (req, res) => {
       middleName: normalizedMiddleName,
       lastName: normalizedLastName,
       gender: normalizedGender,
-      email: normalizedEmail,
       phoneNumber: normalizedPhoneNumber,
       children: []
     });

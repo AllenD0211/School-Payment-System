@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
@@ -69,102 +69,101 @@ interface Event {
   type: "academic" | "sports" | "cultural" | "meeting";
 }
 
-// Student Data
-const studentData: StudentInfo = {
-  id: "STU-2024-001",
-  name: "Emma Johnson",
-  grade: "Grade 10",
-  section: "A",
-  rollNumber: "10-A-15",
-  dateOfBirth: "2010-05-15",
-  enrollmentDate: "2024-06-01",
-  email: "emma.johnson@school.edu",
+type JwtPayload = {
+  id?: string;
+  userType?: string;
 };
 
-const paymentDues: PaymentDue[] = [
-  {
-    id: "1",
-    type: "Tuition Fee",
-    amount: 5000,
-    dueDate: "2026-02-15",
-    status: "pending",
-    description: "Monthly tuition fee for February 2026",
-  },
-  {
-    id: "2",
-    type: "Library Fee",
-    amount: 150,
-    dueDate: "2026-02-01",
-    status: "overdue",
-    description: "Annual library subscription fee",
-  },
-  {
-    id: "3",
-    type: "Activity Fee",
-    amount: 300,
-    dueDate: "2026-03-01",
-    status: "pending",
-    description: "Sports and extracurricular activities fee",
-  },
-];
+type SessionUser = {
+  id?: string;
+  email?: string;
+  userType?: string;
+};
 
-const paymentHistory: PaymentHistory[] = [
-  {
-    id: "PAY-001",
-    date: "2026-01-15",
-    amount: 5000,
-    type: "Tuition Fee",
-    method: "Bank Transfer",
-    receiptNumber: "RCP-12345678",
-  },
-  {
-    id: "PAY-002",
-    date: "2025-12-10",
-    amount: 5000,
-    type: "Tuition Fee",
-    method: "Cash",
-    receiptNumber: "RCP-87654321",
-  },
-];
+const EMPTY_STUDENT_INFO: StudentInfo = {
+  id: "",
+  name: "",
+  grade: "",
+  section: "",
+  rollNumber: "",
+  dateOfBirth: "",
+  enrollmentDate: "",
+  email: "",
+};
 
-const upcomingEvents: Event[] = [
-  {
-    id: "1",
-    title: "Parent-Teacher Meeting",
-    date: "2026-01-25",
-    time: "10:00 AM",
-    location: "School Auditorium",
-    description: "Discuss student progress and academic performance",
-    type: "meeting",
-  },
-  {
-    id: "3",
-    title: "Mid-Term Examinations",
-    date: "2026-02-10",
-    time: "9:00 AM",
-    location: "Examination Halls",
-    description: "Mid-term examinations for all subjects",
-    type: "academic",
-  },
-  {
-    id: "4",
-    title: "Annual Sports Day",
-    date: "2026-02-20",
-    time: "8:00 AM",
-    location: "School Sports Ground",
-    description: "Annual inter-house sports competition",
-    type: "sports",
-  },
-  {
-    id: "5",
-    title: "Science Fair",
-    date: "2026-02-28",
-    time: "2:00 PM",
-    location: "Science Block",
-    description: "Showcase your science projects",
-    type: "academic",
-  },
-];
+const toStringValue = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
+
+const toDateInputValue = (value: unknown) => {
+  if (!value) return "";
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().split("T")[0];
+};
+
+const parseJwtToken = (token: string): JwtPayload | null => {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedBase64 = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const decoded = atob(paddedBase64);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const parseSessionUser = (raw: string | null): SessionUser | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const inferEventType = (title: string, description: string): Event["type"] => {
+  const text = `${title} ${description}`.toLowerCase();
+  if (text.includes("sport")) return "sports";
+  if (text.includes("meeting") || text.includes("parent")) return "meeting";
+  if (text.includes("fair") || text.includes("cultural")) return "cultural";
+  return "academic";
+};
+
+const fetchJsonSafe = async (url: string, init?: RequestInit) => {
+  const response = await fetch(url, init);
+  const rawText = await response.text();
+  try {
+    return { response, data: rawText ? JSON.parse(rawText) : null };
+  } catch {
+    return {
+      response,
+      data: { success: false, message: `Invalid response from ${url}` },
+    };
+  }
+};
+
+const resolveStudentFromList = (
+  rows: any[],
+  userId: string,
+  email: string,
+) => {
+  return rows.find((row) => {
+    const rowUserId =
+      typeof row?.userId === "object"
+        ? toStringValue(row?.userId?._id)
+        : toStringValue(row?.userId);
+    const rowEmail =
+      typeof row?.userId === "object"
+        ? toStringValue(row?.userId?.email).toLowerCase()
+        : toStringValue(row?.email).toLowerCase();
+    return rowUserId === userId || (email && rowEmail === email.toLowerCase());
+  });
+};
 
 // Professional PDF Receipt Generation
 const generateProfessionalReceipt = (
@@ -388,6 +387,173 @@ const generateProfessionalReceipt = (
 export default function StudentDashboard() {
   const navigate = useNavigate();
   const [hideAmounts, setHideAmounts] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [studentData, setStudentData] = useState<StudentInfo>(EMPTY_STUDENT_INFO);
+  const [paymentDues, setPaymentDues] = useState<PaymentDue[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      const token = localStorage.getItem("token");
+      const storedUser = parseSessionUser(localStorage.getItem("user"));
+      if (!token) {
+        toast.error("Please login first.");
+        navigate("/login");
+        return;
+      }
+
+      const payload = parseJwtToken(token);
+      const userId = storedUser?.id
+        ? String(storedUser.id)
+        : payload?.id
+          ? String(payload.id)
+          : "";
+      const sessionEmail = storedUser?.email
+        ? String(storedUser.email)
+        : "";
+      const tokenEmail = payload && "email" in payload && (payload as any).email
+        ? String((payload as any).email)
+        : "";
+      const accountEmail = sessionEmail || tokenEmail;
+      const userType = storedUser?.userType || payload?.userType;
+
+      if (!userId) {
+        toast.error("Invalid session. Please login again.");
+        navigate("/login");
+        return;
+      }
+
+      if (userType && userType !== "student") {
+        toast.error("Unauthorized dashboard access.");
+        navigate("/login");
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+
+        const [studentResult, feesResult, eventsResult] = await Promise.all([
+          fetchJsonSafe(`http://localhost:5000/api/students/${userId}`),
+          fetchJsonSafe(`http://localhost:5000/api/fees/student/${userId}`),
+          fetchJsonSafe("http://localhost:5000/api/events"),
+        ]);
+
+        let studentRow = studentResult.data?.student || null;
+        if (!studentResult.response.ok || !studentRow) {
+          const studentsFallback = await fetchJsonSafe("http://localhost:5000/api/students");
+          const rows = Array.isArray(studentsFallback.data)
+            ? studentsFallback.data
+            : Array.isArray(studentsFallback.data?.students)
+              ? studentsFallback.data.students
+              : [];
+          studentRow = resolveStudentFromList(rows, userId, accountEmail);
+        }
+
+        if (!studentRow) {
+          throw new Error("No student record linked to this login account.");
+        }
+
+        const firstName = toStringValue(studentRow.firstName ?? studentRow.first_name);
+        const middleName = toStringValue(studentRow.middleName ?? studentRow.middle_name);
+        const lastName = toStringValue(studentRow.lastName ?? studentRow.last_name);
+        const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+        const studentId = toStringValue(studentRow.studentId ?? studentRow.student_id);
+        const gradeSection = toStringValue(studentRow.gradeSection);
+        const [gradePart, ...sectionParts] = gradeSection.split(" - ");
+
+        setStudentData({
+          id: studentId,
+          name: fullName || "Student",
+          grade: gradePart || gradeSection || "Not Provided",
+          section: sectionParts.join(" - ") || "Not Provided",
+          rollNumber: studentId || "Not Provided",
+          dateOfBirth: toDateInputValue(studentRow.birthdate ?? studentRow.birth_date),
+          enrollmentDate: toDateInputValue(studentRow.createdAt ?? studentRow.created_at),
+          email:
+            toStringValue(
+              studentRow.email ??
+                studentRow.user?.email ??
+                studentRow.userId?.email ??
+                accountEmail,
+            ) || "Not Provided",
+        });
+
+        const feeRows = Array.isArray(feesResult.data?.fees) ? feesResult.data.fees : [];
+        const normalizedDues: PaymentDue[] = feeRows
+          .map((fee: any) => {
+            const status = String(fee.status || "pending").toLowerCase();
+            const normalizedStatus: PaymentDue["status"] =
+              status === "paid" || status === "overdue" ? status : "pending";
+            const feeType = toStringValue(fee.fee_type ?? fee.feeType);
+            return {
+              id: toStringValue(fee.fee_id ?? fee._id ?? fee.id),
+              type: feeType || "Fee",
+              amount: Number(fee.amount || 0),
+              dueDate: toDateInputValue(fee.due_date ?? fee.dueDate),
+              status: normalizedStatus,
+              description: `${feeType || "Fee"} record`,
+            };
+          })
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+        setPaymentDues(normalizedDues);
+
+        const normalizedHistory: PaymentHistory[] = normalizedDues
+          .filter((fee) => fee.status === "paid")
+          .map((fee) => ({
+            id: fee.id,
+            date: fee.dueDate,
+            amount: fee.amount,
+            type: fee.type,
+            method: "Recorded",
+            receiptNumber: `RCP-${fee.id.slice(-8).toUpperCase()}`,
+          }))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        setPaymentHistory(normalizedHistory);
+
+        const eventRows = Array.isArray(eventsResult.data?.events) ? eventsResult.data.events : [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const normalizedEvents: Event[] = eventRows
+          .map((eventRow: any) => {
+            const dateTime = new Date(eventRow.eventDateTime);
+            return {
+              id: toStringValue(eventRow._id ?? eventRow.id),
+              title: toStringValue(eventRow.title),
+              date: toDateInputValue(dateTime),
+              time: dateTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              location: toStringValue(eventRow.location),
+              description: toStringValue(eventRow.description),
+              type: inferEventType(
+                toStringValue(eventRow.title),
+                toStringValue(eventRow.description),
+              ),
+              __timestamp: dateTime.getTime(),
+            };
+          })
+          .filter((eventRow) => {
+            const eventDate = new Date(eventRow.date);
+            eventDate.setHours(0, 0, 0, 0);
+            return eventDate.getTime() >= today.getTime();
+          })
+          .sort((a, b) => a.__timestamp - b.__timestamp)
+          .map(({ __timestamp, ...eventRow }) => eventRow);
+
+        setUpcomingEvents(normalizedEvents);
+      } catch (error: any) {
+        toast.error(error?.message || "Failed to load student dashboard data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [navigate]);
 
   const handleDownloadReceipt = (payment: PaymentHistory) => {
     try {
@@ -406,6 +572,7 @@ export default function StudentDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     toast.success("Logged out successfully");
     navigate("/login");
   };
@@ -464,6 +631,19 @@ export default function StudentDashboard() {
 
   const pendingCount = paymentDues.filter((p) => p.status === "pending").length;
   const overdueCount = paymentDues.filter((p) => p.status === "overdue").length;
+  const displayName = studentData.name || "Student";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] p-6">
+        <div className="max-w-7xl mx-auto">
+          <Card className="p-8 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg text-center">
+            <p className="text-[#0F2854] font-semibold">Loading student dashboard...</p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] p-6">
@@ -479,7 +659,7 @@ export default function StudentDashboard() {
                 Student Dashboard
               </h1>
               <p className="text-[#BDE8F5] mt-1">
-                Welcome back, {studentData.name} 👋
+                Welcome back, {displayName} 👋
               </p>
             </div>
           </div>
@@ -622,12 +802,12 @@ export default function StudentDashboard() {
                 <Separator className="mb-4" />
 
                 <div className="flex items-start gap-4 mb-6">
-                  <Avatar className="w-20 h-20 border-4 border-[#BDE8F5]">
-                    <AvatarFallback className="bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] text-white text-2xl font-bold">
-                      {studentData.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                    <Avatar className="w-20 h-20 border-4 border-[#BDE8F5]">
+                      <AvatarFallback className="bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] text-white text-2xl font-bold">
+                        {displayName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div>

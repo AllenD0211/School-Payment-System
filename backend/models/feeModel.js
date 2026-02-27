@@ -5,26 +5,32 @@ const feeSchema = new mongoose.Schema(
   {
     studentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
-      required: true,
-      default: null
+      ref: "User",
+      required: true
     },
 
     feeType: {
       type: String,
       required: true,
-      default: null
+      trim: true
     },
 
-    amount: { type: Number, required: true, default: 0 },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
 
     status: {
       type: String,
-      enum: ["pending", "paid"],
+      enum: ["paid", "pending", "overdue"],
       default: "pending"
     },
 
-    dueDate: { type: Date, default: null }
+    dueDate: {
+      type: Date,
+      required: true
+    }
   },
   { timestamps: true }
 );

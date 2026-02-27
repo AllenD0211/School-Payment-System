@@ -55,6 +55,7 @@ export default function LoginPage() {
       if (response.ok) {
         toast.success(data.message);
         localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
 
         if (rememberMe) {
           localStorage.setItem("rememberEmail", email);

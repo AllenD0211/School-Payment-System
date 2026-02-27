@@ -12,10 +12,10 @@ const eventSchema = new mongoose.Schema(
     // Event location
     location: {
       type: String,
-      required: true,
+      default: "",
     },
   },
-  { timestamps: true }
+  { timestamps: true, collection: "events" }
 );
 
 module.exports = mongoose.model("Event", eventSchema);

@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { EventTable, SchoolEvent } from "@/app/components/event-panel";
-import { StatsOverview } from "@/app/components/stats-overview";
 import { FeeStats } from "@/app/components/fee-stats";
-import { StudentTable, Student } from "@/app/components/student-table";
+import { StudentTable } from "@/app/components/student-table";
 import {
   NotificationPanel,
   Notification,
@@ -23,11 +22,18 @@ import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { GraduationCap, TrendingUp, AlertCircle, Bell } from "lucide-react";
 
-/* -------------------- Component -------------------- */
+type DashboardStudent = {
+  student_id: string;
+  fee_summary?: {
+    paidAmount?: number;
+    pendingAmount?: number;
+    overdueAmount?: number;
+  };
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
-
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [sentReceipts, setSentReceipts] = useState<ReceiptFeedback[]>([]);
   const [events, setEvents] = useState<SchoolEvent[]>([]);
@@ -35,29 +41,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/admin/students",
-        );
-
+        const response = await fetch("http://localhost:5000/api/admin/students");
         const data = await response.json();
-
         if (data.success) {
-          // Transform backend data to match Student interface
-          const formattedStudents = data.students.map((student: any) => ({
-            id: student.studentId,
-            name: `${student.userId.firstName} ${student.userId.lastName}`,
-            grade: student.gradeLevel || "N/A",
-            parentName: student.parentName || "N/A",
-            parentContact: student.notificationContact || "",
-            parentEmail: student.email || "",
-            feeAmount: student.feeAmount || 0,
-            feeStatus: student.feeStatus || "pending",
-            dueDate: student.dueDate || "",
-            type: student.type || "Tuition Fee",
-            notificationMethod: student.notificationMethod || "email",
-          }));
-
-          setStudents(formattedStudents);
+          setStudents(data.students || []);
         }
       } catch (error) {
         console.error("Failed to fetch students:", error);
@@ -67,7 +54,6 @@ export default function AdminDashboard() {
     fetchStudents();
   }, []);
 
-  /* -------------------- Load Events from localStorage -------------------- */
   useEffect(() => {
     fetchEvents();
   }, []);
@@ -77,118 +63,28 @@ export default function AdminDashboard() {
       const response = await fetch("http://localhost:5000/api/events");
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         const formatted = data.events.map((e: any) => {
           const dateObj = new Date(e.eventDateTime);
           return {
             id: e._id,
             title: e.title,
-            description: e.description,
-            location: e.location,
+            description: e.description || "",
+            location: e.location || "",
             date: dateObj.toISOString().split("T")[0],
             time: dateObj.toTimeString().slice(0, 5),
           };
         });
 
         setEvents(formatted);
+      } else {
+        toast.error(data?.message || "Failed to load events");
       }
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to load events");
     }
   };
 
-  /* -------------------- Student Handlers -------------------- */
-  const handleRecordPayment = (studentId: string) => {
-    const student = students.find((s) => s.id === studentId);
-    setStudents((prev) =>
-      prev.map((s) => (s.id === studentId ? { ...s, feeStatus: "paid" } : s))
-    );
-    toast.success(`Payment recorded for ${student?.name}`);
-  };
-
-  const handleAddFee = (studentId: string, fee: Omit<Student, "id">) => {
-    setStudents((prev) =>
-      prev.map((s) =>
-        s.id === studentId
-          ? {
-              ...s,
-              feeAmount: fee.feeAmount,
-              dueDate: fee.dueDate,
-              feeStatus: fee.feeStatus,
-              type: fee.type || s.type,
-            }
-          : s
-      )
-    );
-    toast.success("Fee added successfully");
-  };
-
-  const handleEditStudent = (
-    studentId: string,
-    updatedStudent: Omit<Student, "id">
-  ) => {
-    setStudents((prev) =>
-      prev.map((s) => (s.id === studentId ? { ...s, ...updatedStudent } : s))
-    );
-    toast.success("Student updated successfully");
-  };
-
-  const handleDeleteStudent = (studentId: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== studentId));
-    toast.success("Student deleted successfully");
-  };
-
-  /* -------------------- Notification Handler with Method -------------------- */
-  const handleNotifyParent = (studentId: string, method: "sms" | "email") => {
-    const student = students.find((s) => s.id === studentId);
-    if (!student) return;
-
-    // Validate contact info
-    if (method === "sms" && !student.parentContact) {
-      toast.error("Phone number not available for SMS");
-      return;
-    }
-    if (method === "email" && !student.parentEmail) {
-      toast.error("Email not available for email");
-      return;
-    }
-
-    const methodText = method === "sms" ? "SMS" : "Email";
-    const recipient =
-      method === "sms" ? student.parentContact : student.parentEmail;
-
-    const newNotification: Notification = {
-      id: Date.now().toString(),
-      recipient: recipient || "",
-      message: `[${methodText}] Reminder: School fee payment for ${student.name} is ${student.feeStatus}. Amount: ₱${student.feeAmount}. Type: ${
-        student.type || "Tuition Fee"
-      }`,
-      timestamp: new Date().toLocaleString(),
-      status: "sent",
-    };
-
-    setNotifications((prev) => [newNotification, ...prev]);
-    toast.success(
-      `${methodText} notification sent to ${student.parentName}`
-    );
-  };
-
-  const handleSendNotification = (recipient: string, message: string) => {
-    setNotifications((prev) => [
-      {
-        id: Date.now().toString(),
-        recipient,
-        message,
-        timestamp: new Date().toLocaleString(),
-        status: "sent",
-      },
-      ...prev,
-    ]);
-
-    toast.success("Notification sent");
-  };
-
-  /* -------------------- Receipts Handlers -------------------- */
   const handleResendReceipt = (receiptId: string) => {
     const receipt = sentReceipts.find((r) => r.id === receiptId);
     if (receipt) {
@@ -197,7 +93,7 @@ export default function AdminDashboard() {
   };
 
   const handleAddManualReceipt = (
-    receipt: Omit<ReceiptFeedback, "id" | "sentAt" | "status">
+    receipt: Omit<ReceiptFeedback, "id" | "sentAt" | "status">,
   ) => {
     setSentReceipts((prev) => [
       {
@@ -210,7 +106,6 @@ export default function AdminDashboard() {
     ]);
   };
 
-  /* -------------------- Event Handlers -------------------- */
   const handleAddEvent = async (event: Omit<SchoolEvent, "id">) => {
     try {
       const response = await fetch("http://localhost:5000/api/events", {
@@ -227,49 +122,74 @@ export default function AdminDashboard() {
       });
 
       const data = await response.json();
-
-      if (data.success) {
-        fetchEvents(); // reload
-        toast.success("Event added to database");
+      if (!response.ok || !data.success) {
+        toast.error(data?.message || "Failed to add event");
+        return false;
       }
+      await fetchEvents();
+      return true;
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to add event");
+      return false;
     }
   };
 
   const handleUpdateEvent = async (updatedEvent: SchoolEvent) => {
-    await fetch(`http://localhost:5000/api/events/${updatedEvent.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: updatedEvent.title,
-        description: updatedEvent.description,
-        location: updatedEvent.location,
-        eventDateTime: new Date(`${updatedEvent.date}T${updatedEvent.time}`),
-      }),
-    });
-
-    fetchEvents();
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${updatedEvent.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: updatedEvent.title,
+          description: updatedEvent.description,
+          location: updatedEvent.location,
+          eventDateTime: new Date(`${updatedEvent.date}T${updatedEvent.time}`),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        toast.error(data?.message || "Failed to update event");
+        return false;
+      }
+      await fetchEvents();
+      return true;
+    } catch {
+      toast.error("Failed to update event");
+      return false;
+    }
   };
 
   const handleDeleteEvent = async (id: string) => {
-    await fetch(`http://localhost:5000/api/events/${id}`, {
-      method: "DELETE",
-    });
-
-    fetchEvents();
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        toast.error(data?.message || "Failed to delete event");
+        return false;
+      }
+      await fetchEvents();
+      return true;
+    } catch {
+      toast.error("Failed to delete event");
+      return false;
+    }
   };
 
-  /* -------------------- Stats -------------------- */
   const totalStudents = students.length;
-  const totalCollected = students
-    .filter((s) => s.feeStatus === "paid")
-    .reduce((sum, s) => sum + s.feeAmount, 0);
-  const totalPending = students
-    .filter((s) => s.feeStatus !== "paid")
-    .reduce((sum, s) => sum + s.feeAmount, 0);
+  const totalCollected = students.reduce(
+    (sum, s) => sum + Number(s.fee_summary?.paidAmount || 0),
+    0,
+  );
+  const totalPending = students.reduce(
+    (sum, s) =>
+      sum +
+      Number(s.fee_summary?.pendingAmount || 0) +
+      Number(s.fee_summary?.overdueAmount || 0),
+    0,
+  );
 
-  /* -------------------- UI -------------------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] p-6">
       <style>{`
@@ -282,7 +202,6 @@ export default function AdminDashboard() {
         }
       `}</style>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-[#BDE8F5] rounded-xl shadow-lg">
@@ -313,7 +232,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
@@ -370,7 +288,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue="students" className="space-y-6">
           <TabsList className="bg-white/10 border-white/20">
             <TabsTrigger
@@ -405,33 +322,20 @@ export default function AdminDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Students Tab */}
           <TabsContent value="students">
-
-            <StudentTable
-              students={students}
-              onNotifyParent={handleNotifyParent}
-              onRecordPayment={handleRecordPayment}
-              onAddFee={handleAddFee}
-              onEditStudent={handleEditStudent}
-              onDeleteStudent={handleDeleteStudent}
-            />
-
+            <StudentTable />
           </TabsContent>
 
-          {/* Analytics Tab */}
           <TabsContent value="analytics">
             <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
               <FeeStats />
             </Card>
           </TabsContent>
 
-          {/* Notifications Tab */}
           <TabsContent value="notifications">
             <NotificationPanel notifications={notifications} />
           </TabsContent>
 
-          {/* Receipts Tab */}
           <TabsContent value="receipts">
             <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
               <ReceiptFeedbackPanel
@@ -442,7 +346,6 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Events Tab */}
           <TabsContent value="events">
             <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
               <EventTable
