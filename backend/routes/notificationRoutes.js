@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const { getNotifications } = require("../controllers/notificationsController");
 
-// Placeholder route
-router.get("/", (req, res) => res.json([]));
+router.get("/", getNotifications);
 
 module.exports = router;

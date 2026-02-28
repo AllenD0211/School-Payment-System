@@ -22,6 +22,10 @@ import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { GraduationCap, TrendingUp, AlertCircle, Bell } from "lucide-react";
 
+const EVENT_SYNC_STORAGE_KEY = "events_last_updated_at";
+const EVENT_SYNC_WINDOW_EVENT = "events-updated";
+const API_BASE = "http://localhost:5000";
+
 type DashboardStudent = {
   student_id: string;
   fee_summary?: {
@@ -31,6 +35,109 @@ type DashboardStudent = {
   };
 };
 
+const toStringValue = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
+
+const toSafeNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const toLocalDateTime = (value: unknown) => {
+  if (!value) return "-";
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString();
+};
+
+const normalizeReceiptStatus = (
+  value: unknown,
+): ReceiptFeedback["status"] => {
+  const normalized = toStringValue(value).toLowerCase();
+  if (
+    normalized === "sent" ||
+    normalized === "pending" ||
+    normalized === "delivered" ||
+    normalized === "read" ||
+    normalized === "acknowledged"
+  ) {
+    return normalized;
+  }
+  return "sent";
+};
+
+const normalizeSentVia = (value: unknown): ReceiptFeedback["sentVia"] => {
+  const normalized = toStringValue(value).toLowerCase();
+  return normalized === "sms" ? "sms" : "email";
+};
+
+const mapReceiptToFeedback = (row: any): ReceiptFeedback => ({
+  id: toStringValue(row?._id || row?.id || row?.receiptNumber),
+  receiptNumber: toStringValue(row?.receiptNumber),
+  studentName: toStringValue(row?.studentName),
+  amount: toSafeNumber(row?.amount),
+  sentVia: normalizeSentVia(row?.sentVia),
+  sentTo: toStringValue(row?.sentTo),
+  sentAt: toLocalDateTime(row?.paymentDate || row?.createdAt),
+  status: normalizeReceiptStatus(row?.status),
+  paymentDescription: toStringValue(row?.paymentDescription),
+  parentFeedback: toStringValue(row?.parentFeedback) || undefined,
+  feedbackAt: toStringValue(row?.feedbackAt) || undefined,
+});
+
+const normalizeNotificationStatus = (
+  value: unknown,
+): Notification["status"] => {
+  const normalized = toStringValue(value).toLowerCase();
+  return normalized === "sent" ? "sent" : "pending";
+};
+
+const normalizeNotificationMethod = (
+  value: unknown,
+): NonNullable<Notification["method"]> => {
+  const normalized = toStringValue(value).toLowerCase();
+  return normalized === "sms" ? "sms" : "email";
+};
+
+const mapNotificationRow = (row: any): Notification => ({
+  id: toStringValue(row?.id || row?._id),
+  recipient: toStringValue(row?.recipient),
+  message: toStringValue(row?.message),
+  timestamp: toLocalDateTime(row?.timestamp || row?.sentAt || row?.createdAt),
+  status: normalizeNotificationStatus(row?.status),
+  method: normalizeNotificationMethod(row?.method),
+});
+
+const fetchJsonSafe = async (url: string, init?: RequestInit) => {
+  try {
+    const response = await fetch(url, init);
+    const rawText = await response.text();
+    try {
+      return { response, data: rawText ? JSON.parse(rawText) : null };
+    } catch {
+      return {
+        response,
+        data: {
+          success: false,
+          message:
+            rawText?.slice?.(0, 160) ||
+            `Invalid JSON response from ${url} (status ${response.status})`,
+        },
+      };
+    }
+  } catch (error: any) {
+    return {
+      response: { ok: false, status: 0 } as Response,
+      data: {
+        success: false,
+        message: error?.message || "Network error",
+      },
+    };
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [students, setStudents] = useState<DashboardStudent[]>([]);
@@ -38,10 +145,32 @@ export default function AdminDashboard() {
   const [sentReceipts, setSentReceipts] = useState<ReceiptFeedback[]>([]);
   const [events, setEvents] = useState<SchoolEvent[]>([]);
 
+  const loadNotifications = async () => {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/notifications`);
+    if (!response.ok || !data?.success) {
+      toast.error(data?.message || "Failed to load notifications");
+      return;
+    }
+
+    const rows = Array.isArray(data.notifications) ? data.notifications : [];
+    setNotifications(rows.map(mapNotificationRow));
+  };
+
+  const loadReceipts = async () => {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts`);
+    if (!response.ok || !data?.success) {
+      toast.error(data?.message || "Failed to load receipts");
+      return;
+    }
+
+    const rows = Array.isArray(data.receipts) ? data.receipts : [];
+    setSentReceipts(rows.map(mapReceiptToFeedback));
+  };
+
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/admin/students");
+        const response = await fetch(`${API_BASE}/api/admin/students`);
         const data = await response.json();
         if (data.success) {
           setStudents(data.students || []);
@@ -56,11 +185,19 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchEvents();
+    loadNotifications();
+    loadReceipts();
   }, []);
+
+  const notifyEventSync = () => {
+    const timestamp = String(Date.now());
+    localStorage.setItem(EVENT_SYNC_STORAGE_KEY, timestamp);
+    window.dispatchEvent(new Event(EVENT_SYNC_WINDOW_EVENT));
+  };
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/events");
+      const response = await fetch(`${API_BASE}/api/events`);
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -92,23 +229,47 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAddManualReceipt = (
+  const handleNotificationSent = (notification: Notification) => {
+    setNotifications((prev) => {
+      const withoutCurrent = prev.filter((item) => item.id !== notification.id);
+      return [notification, ...withoutCurrent];
+    });
+  };
+
+  const handleAddManualReceipt = async (
     receipt: Omit<ReceiptFeedback, "id" | "sentAt" | "status">,
   ) => {
-    setSentReceipts((prev) => [
-      {
-        ...receipt,
-        id: Date.now().toString(),
-        sentAt: new Date().toLocaleString(),
-        status: "sent",
-      },
-      ...prev,
-    ]);
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts/manual`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        receiptNumber: receipt.receiptNumber,
+        studentName: receipt.studentName,
+        amount: receipt.amount,
+        sentVia: receipt.sentVia,
+        sentTo: receipt.sentTo,
+        paymentDescription: receipt.paymentDescription,
+      }),
+    });
+
+    if (!response.ok || !data?.success) {
+      toast.error(data?.message || "Failed to add manual receipt");
+      return false;
+    }
+
+    if (data.receipt) {
+      const createdReceipt = mapReceiptToFeedback(data.receipt);
+      setSentReceipts((prev) => [createdReceipt, ...prev]);
+    } else {
+      await loadReceipts();
+    }
+
+    return true;
   };
 
   const handleAddEvent = async (event: Omit<SchoolEvent, "id">) => {
     try {
-      const response = await fetch("http://localhost:5000/api/events", {
+      const response = await fetch(`${API_BASE}/api/events`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -127,6 +288,7 @@ export default function AdminDashboard() {
         return false;
       }
       await fetchEvents();
+      notifyEventSync();
       return true;
     } catch (error) {
       toast.error("Failed to add event");
@@ -136,7 +298,7 @@ export default function AdminDashboard() {
 
   const handleUpdateEvent = async (updatedEvent: SchoolEvent) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${updatedEvent.id}`, {
+      const response = await fetch(`${API_BASE}/api/events/${updatedEvent.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -152,6 +314,7 @@ export default function AdminDashboard() {
         return false;
       }
       await fetchEvents();
+      notifyEventSync();
       return true;
     } catch {
       toast.error("Failed to update event");
@@ -161,7 +324,7 @@ export default function AdminDashboard() {
 
   const handleDeleteEvent = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+      const response = await fetch(`${API_BASE}/api/events/${id}`, {
         method: "DELETE",
       });
       const data = await response.json();
@@ -170,6 +333,7 @@ export default function AdminDashboard() {
         return false;
       }
       await fetchEvents();
+      notifyEventSync();
       return true;
     } catch {
       toast.error("Failed to delete event");
@@ -323,7 +487,7 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="students">
-            <StudentTable />
+            <StudentTable onNotificationSent={handleNotificationSent} />
           </TabsContent>
 
           <TabsContent value="analytics">

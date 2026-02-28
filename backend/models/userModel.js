@@ -17,6 +17,38 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ["student", "parent"]
+    },
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+    emailVerification: {
+      otpHash: {
+        type: String,
+        default: null
+      },
+      expiresAt: {
+        type: Date,
+        default: null
+      },
+      verifiedAt: {
+        type: Date,
+        default: null
+      }
+    },
+    passwordReset: {
+      otpHash: {
+        type: String,
+        default: null
+      },
+      expiresAt: {
+        type: Date,
+        default: null
+      },
+      verifiedAt: {
+        type: Date,
+        default: null
+      }
     }
   },
   { timestamps: true }

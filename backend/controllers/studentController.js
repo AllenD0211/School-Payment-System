@@ -1,4 +1,11 @@
 const Student = require("../models/studentModel");
+const Parent = require("../models/parentModel");
+const User = require("../models/userModel");
+const Notification = require("../models/notificationModel");
+const sendMail = require("../utils/mailer");
+
+const fullName = (firstName, middleName, lastName) =>
+  [firstName, middleName, lastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 
 const getStudents = async (req, res) => {
   try {
@@ -90,9 +97,79 @@ const deleteStudent = async (req, res) => {
   }
 };
 
+const notifyParentByStudentAction = async (req, res) => {
+  try {
+    const studentUserId = String(req.params.userId || "").trim();
+    const actionType = String(req.body?.actionType || "performed an action").trim();
+    const customSubject = String(req.body?.subject || "").trim();
+    const customMessage = String(req.body?.message || "").trim();
+
+    if (!studentUserId) {
+      return res.status(400).json({ success: false, message: "student userId is required" });
+    }
+
+    const student = await Student.findOne({ userId: studentUserId }).lean();
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    const parent = student.parentId
+      ? await Parent.findById(student.parentId).lean()
+      : await Parent.findOne({ children: student.userId }).lean();
+
+    if (!parent) {
+      return res.status(404).json({ success: false, message: "Parent not linked to student" });
+    }
+
+    const parentUser = await User.findById(parent.userId).lean();
+    if (!parentUser?.email) {
+      return res.status(400).json({ success: false, message: "Parent email not found" });
+    }
+
+    const studentName =
+      fullName(student.firstName, student.middleName, student.lastName) || student.studentId;
+    const subject = customSubject || "Student Activity Notification";
+    const textMessage =
+      customMessage ||
+      `Hello Parent/Guardian,\n\n${studentName} (${student.studentId}) has ${actionType}.\n\nThis is an automated notice from the School Payment System.`;
+    const htmlMessage = `<div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0F2854;">
+      ${textMessage.replace(/\n/g, "<br>")}
+    </div>`;
+
+    await sendMail(parentUser.email, subject, htmlMessage, {
+      html: true,
+      text: textMessage
+    });
+
+    const notification = await Notification.create({
+      studentId: student._id,
+      recipient: parentUser.email,
+      method: "email",
+      message: textMessage,
+      status: "sent"
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Parent notification sent successfully",
+      notification: {
+        id: notification._id,
+        recipient: notification.recipient,
+        method: notification.method,
+        status: notification.status,
+        timestamp: notification.createdAt
+      }
+    });
+  } catch (error) {
+    console.error("Notify parent by student action error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   getStudents,
   getStudentByUserId,
   updateStudent,
-  deleteStudent
+  deleteStudent,
+  notifyParentByStudentAction
 };

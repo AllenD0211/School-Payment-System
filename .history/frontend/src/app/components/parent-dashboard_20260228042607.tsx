@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
@@ -36,8 +36,6 @@ import {
 } from "lucide-react";
 
 const API_BASE = "http://localhost:5000";
-const EVENT_SYNC_STORAGE_KEY = "events_last_updated_at";
-const EVENT_SYNC_WINDOW_EVENT = "events-updated";
 
 type JwtPayload = {
   id?: string;
@@ -125,10 +123,7 @@ const parseDateSafe = (value: unknown) => {
 const toDateInputValue = (value: unknown) => {
   const parsed = parseDateSafe(value);
   if (!parsed) return "";
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return parsed.toISOString().split("T")[0];
 };
 
 const parseSessionUser = (raw: string | null): SessionUser | null => {
@@ -184,7 +179,7 @@ const fetchJsonSafe = async (url: string, init?: RequestInit) => {
 
 const normalizeFeeRows = (rows: any[]): PaymentDue[] =>
   rows.map((row) => {
-    const status = String(row.status || "pending").trim().toLowerCase();
+    const status = String(row.status || "pending").toLowerCase();
     const normalizedStatus: PaymentDue["status"] =
       status === "paid" || status === "overdue" ? status : "pending";
     const feeType = toStringValue(row.fee_type ?? row.feeType);
@@ -197,30 +192,6 @@ const normalizeFeeRows = (rows: any[]): PaymentDue[] =>
       description: `${feeType || "Fee"} record`,
     };
   });
-
-const normalizeEventRows = (rows: any[]): EventItem[] =>
-  rows
-    .map((row: any) => {
-      const eventDateTime = parseDateSafe(
-        row.eventDateTime ?? row.date ?? row.event_date ?? row.createdAt,
-      );
-      if (!eventDateTime) return null;
-      return {
-        id: toStringValue(row._id || row.id),
-        title: toStringValue(row.title),
-        date: toDateInputValue(eventDateTime),
-        time: eventDateTime.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        location: toStringValue(row.location),
-        description: toStringValue(row.description),
-        __timestamp: eventDateTime.getTime(),
-      };
-    })
-    .filter((item: any): item is EventItem & { __timestamp: number } => Boolean(item))
-    .sort((a, b) => a.__timestamp - b.__timestamp)
-    .map(({ __timestamp, ...item }) => item);
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -263,18 +234,6 @@ export default function ParentDashboard() {
     }
   };
 
-  const loadEvents = useCallback(async () => {
-    const eventsResult = await fetchJsonSafe(`${API_BASE}/api/events`);
-    if (eventsResult.response.ok && eventsResult.data?.success) {
-      const rows = Array.isArray(eventsResult.data.events)
-        ? eventsResult.data.events
-        : [];
-      setEvents(normalizeEventRows(rows));
-      return;
-    }
-    setEvents([]);
-  }, []);
-
   const loadDashboardData = async (resolvedParentUserId: string) => {
     try {
       setIsLoading(true);
@@ -284,19 +243,14 @@ export default function ParentDashboard() {
         fetchJsonSafe(`${API_BASE}/api/events`),
       ]);
 
-      const sessionEmail = toStringValue(parseSessionUser(localStorage.getItem("user"))?.email);
-      let parentRow: any = {};
-      let childrenRows: any[] = [];
-
-      if (parentResult.response.ok && parentResult.data?.success) {
-        parentRow = parentResult.data.parent || {};
-        childrenRows = Array.isArray(parentResult.data.children)
-          ? parentResult.data.children
-          : [];
-      } else {
-        parentRow = { userId: resolvedParentUserId, email: sessionEmail };
-        childrenRows = [];
+      if (!parentResult.response.ok || !parentResult.data?.success) {
+        throw new Error(parentResult.data?.message || "Failed to load parent data");
       }
+
+      const parentRow = parentResult.data.parent || {};
+      const childrenRows = Array.isArray(parentResult.data.children)
+        ? parentResult.data.children
+        : [];
 
       setParentProfile({
         userId: toStringValue(parentRow.userId),
@@ -364,7 +318,33 @@ export default function ParentDashboard() {
         const rows = Array.isArray(eventsResult.data.events)
           ? eventsResult.data.events
           : [];
-        setEvents(normalizeEventRows(rows));
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const normalizedEvents: EventItem[] = rows
+          .map((row: any) => {
+            const eventDateTime = parseDateSafe(row.eventDateTime);
+            if (!eventDateTime) return null;
+            return {
+              id: toStringValue(row._id || row.id),
+              title: toStringValue(row.title),
+              date: toDateInputValue(eventDateTime),
+              time: eventDateTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              location: toStringValue(row.location),
+              description: toStringValue(row.description),
+            };
+          })
+          .filter((item: any): item is EventItem => Boolean(item))
+          .filter((item: EventItem) => {
+            const d = new Date(item.date);
+            d.setHours(0, 0, 0, 0);
+            return d.getTime() >= now.getTime();
+          })
+          .sort((a: EventItem, b: EventItem) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        setEvents(normalizedEvents);
       } else {
         setEvents([]);
       }
@@ -414,31 +394,6 @@ export default function ParentDashboard() {
     loadDashboardData(resolvedUserId);
   }, [navigate]);
 
-  useEffect(() => {
-    if (!parentUserId) return;
-
-    const syncEvents = () => {
-      loadEvents();
-    };
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === EVENT_SYNC_STORAGE_KEY) {
-        syncEvents();
-      }
-    };
-
-    window.addEventListener(EVENT_SYNC_WINDOW_EVENT, syncEvents);
-    window.addEventListener("storage", handleStorage);
-    syncEvents();
-    const intervalId = window.setInterval(syncEvents, 30000);
-
-    return () => {
-      window.removeEventListener(EVENT_SYNC_WINDOW_EVENT, syncEvents);
-      window.removeEventListener("storage", handleStorage);
-      window.clearInterval(intervalId);
-    };
-  }, [parentUserId, loadEvents]);
-
   const currentChild = useMemo(
     () => children.find((child) => child.userId === selectedChildUserId) || null,
     [children, selectedChildUserId],
@@ -468,11 +423,6 @@ export default function ParentDashboard() {
   const currentChildOverdue = currentChild
     ? currentChild.paymentDues.filter((item) => item.status === "overdue").length
     : 0;
-  const currentChildOutstandingDues = currentChild
-    ? currentChild.paymentDues.filter(
-        (item) => item.status === "pending" || item.status === "overdue",
-      )
-    : [];
 
   const formatAmount = (amount: number) =>
     hideAmounts ? "****" : `₱${amount.toLocaleString()}`;
@@ -685,9 +635,9 @@ export default function ParentDashboard() {
                 <h3 className="text-xl font-semibold text-[#0F2854]">Payment Due Items</h3>
               </div>
               <Separator className="mb-4" />
-              {currentChild && currentChildOutstandingDues.length > 0 ? (
+              {currentChild && currentChild.paymentDues.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {currentChildOutstandingDues.map((item) => (
+                  {currentChild.paymentDues.map((item) => (
                     <div key={item.id} className="p-4 border border-[#BDE8F5] rounded-lg">
                       <div className="flex justify-between items-start gap-2 mb-2">
                         <p className="font-semibold text-[#0F2854]">{item.type}</p>
@@ -700,9 +650,7 @@ export default function ParentDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[#4988C4]">
-                  No pending or overdue fees for selected child.
-                </p>
+                <p className="text-sm text-[#4988C4]">No fee dues for selected child.</p>
               )}
             </Card>
           </TabsContent>
@@ -741,7 +689,7 @@ export default function ParentDashboard() {
             <Card className="p-6 bg-white/95 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Calendar className="w-5 h-5 text-[#1C4D8D]" />
-                <h3 className="text-xl font-semibold text-[#0F2854]">School Events</h3>
+                <h3 className="text-xl font-semibold text-[#0F2854]">Upcoming School Events</h3>
               </div>
               <Separator className="mb-4" />
               {events.length > 0 ? (
@@ -763,7 +711,7 @@ export default function ParentDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[#4988C4]">No events found.</p>
+                <p className="text-sm text-[#4988C4]">No upcoming events found.</p>
               )}
             </Card>
           </TabsContent>

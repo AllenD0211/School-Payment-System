@@ -49,9 +49,6 @@ const INITIAL_FORM: FormState = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-const API_BASE = String(
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000",
-).replace(/\/+$/, "");
 
 export default function CreateAccountPage() {
   const navigate = useNavigate();
@@ -60,9 +57,6 @@ export default function CreateAccountPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [isOtpStep, setIsOtpStep] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
 
   const handleInputChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -185,7 +179,7 @@ export default function CreateAccountPage() {
           };
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/register`, {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -194,22 +188,10 @@ export default function CreateAccountPage() {
       const data = await response.json();
 
       if (response.status === 201) {
-        if (data.requiresEmailVerification) {
-          setVerificationEmail(data?.user?.email || payload.email);
-          setIsOtpStep(true);
-          toast.success(data.message || "Account created. Enter the OTP sent to your email.");
-          return;
-        }
-
         toast.success(data.message || "Account created successfully.");
-        navigate("/login");
-        return;
-      }
-
-      if (response.status === 409 && data?.requiresEmailVerification) {
-        setVerificationEmail(data.email || payload.email);
-        setIsOtpStep(true);
-        toast.info("This email is already registered but not verified. Enter OTP to continue.");
+        setTimeout(() => {
+          navigate("/login");
+        }, 1200);
         return;
       }
 
@@ -226,142 +208,6 @@ export default function CreateAccountPage() {
       setIsLoading(false);
     }
   };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (otpCode.length !== 6) {
-      toast.error("Please enter the 6-digit OTP.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/verify-registration-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: verificationEmail, code: otpCode }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        toast.error(data.message || "Failed to verify OTP.");
-        return;
-      }
-
-      toast.success(data.message || "Email verified successfully.");
-      navigate("/login");
-    } catch (error) {
-      console.error(error);
-      toast.error("Something went wrong. Try again later.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    if (!verificationEmail) return;
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE}/api/auth/resend-verification-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: verificationEmail }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        toast.error(data.message || "Failed to resend OTP.");
-        return;
-      }
-
-      toast.success(data.message || "OTP sent successfully.");
-    } catch (error) {
-      console.error(error);
-      toast.error("Something went wrong. Try again later.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (isOtpStep) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#BDE8F5] rounded-full opacity-10 blur-3xl"></div>
-          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-[#4988C4] rounded-full opacity-10 blur-3xl"></div>
-          <div className="absolute -bottom-40 right-1/4 w-80 h-80 bg-[#BDE8F5] rounded-full opacity-10 blur-3xl"></div>
-        </div>
-
-        <Card className="w-full max-w-md p-8 shadow-2xl relative z-10 bg-white/95 backdrop-blur-sm">
-          <div className="flex flex-col items-center mb-6">
-            <div className="p-3 bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] rounded-xl mb-4 shadow-lg">
-              <GraduationCap className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-2xl text-center text-[#0F2854]">Verify Email</h1>
-            <p className="text-sm text-[#1C4D8D] text-center mt-2">
-              Enter the 6-digit OTP sent to <span className="font-semibold">{verificationEmail}</span>
-            </p>
-          </div>
-
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div>
-              <Label htmlFor="otp" className="text-[#0F2854]">
-                OTP Code *
-              </Label>
-              <Input
-                id="otp"
-                inputMode="numeric"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) =>
-                  setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                disabled={isLoading}
-                placeholder="Enter 6-digit code"
-                className="mt-2 text-center text-xl tracking-widest border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading || otpCode.length !== 6}
-              className="w-full bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] text-white shadow-lg"
-            >
-              {isLoading ? "Verifying..." : "Verify OTP"}
-            </Button>
-          </form>
-
-          <div className="mt-4 space-y-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleResendOtp}
-              disabled={isLoading}
-              className="w-full border-[#4988C4]/40 text-[#1C4D8D] hover:bg-[#BDE8F5]/20"
-            >
-              Resend OTP
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setIsOtpStep(false);
-                setOtpCode("");
-              }}
-              disabled={isLoading}
-              className="w-full text-[#1C4D8D]"
-            >
-              Back to Form
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6 relative overflow-hidden">

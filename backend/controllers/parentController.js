@@ -16,6 +16,24 @@ const getParentChildren = async (req, res) => {
       parent = await Parent.findById(parentLookupId).lean();
     }
     if (!parent) {
+      const parentUser = await User.findById(parentLookupId).lean();
+      if (parentUser && parentUser.userType === "parent") {
+        return res.status(200).json({
+          success: true,
+          parent: {
+            _id: null,
+            userId: parentUser._id,
+            firstName: "",
+            middleName: "",
+            lastName: "",
+            fullName: "",
+            gender: "",
+            phoneNumber: "",
+            email: parentUser.email || ""
+          },
+          children: []
+        });
+      }
       return res.status(404).json({
         success: false,
         message: "Parent not found"

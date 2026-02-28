@@ -6,6 +6,7 @@ const {
   getStudentByUserId,
   updateStudent,
   deleteStudent,
+  notifyParentByStudentAction,
 } = require("../controllers/studentController");
 
 // GET all students
@@ -13,6 +14,7 @@ router.get("/", getStudents);
 
 // GET student by userId
 router.get("/:userId", getStudentByUserId);
+router.post("/:userId/notify-parent", notifyParentByStudentAction);
 
 // PUT update student
 router.put("/:id", updateStudent);

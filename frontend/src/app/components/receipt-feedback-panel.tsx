@@ -18,7 +18,7 @@ export interface ReceiptFeedback {
   sentVia: 'email' | 'sms';
   sentTo: string;
   sentAt: string;
-  status: 'sent' | 'delivered' | 'read' | 'acknowledged';
+  status: 'sent' | 'pending' | 'delivered' | 'read' | 'acknowledged';
   parentFeedback?: string;
   feedbackAt?: string;
   paymentDescription?: string; // New field for payment reason
@@ -26,14 +26,17 @@ export interface ReceiptFeedback {
 
 interface ReceiptFeedbackPanelProps {
   receipts: ReceiptFeedback[];
-  onResendReceipt: (receiptId: string) => void;
-  onAddManualReceipt: (receipt: Omit<ReceiptFeedback, 'id' | 'sentAt' | 'status'>) => void;
+  onResendReceipt: (receiptId: string) => void | Promise<void>;
+  onAddManualReceipt: (
+    receipt: Omit<ReceiptFeedback, 'id' | 'sentAt' | 'status'>,
+  ) => boolean | Promise<boolean>;
 }
 
 export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualReceipt }: ReceiptFeedbackPanelProps) {
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [adminNote, setAdminNote] = useState('');
   const [isManualReceiptDialogOpen, setIsManualReceiptDialogOpen] = useState(false);
+  const [isSubmittingManualReceipt, setIsSubmittingManualReceipt] = useState(false);
   const [manualReceiptForm, setManualReceiptForm] = useState({
     receiptNumber: `RCP-${Date.now().toString().slice(-8)}`,
     studentName: '',
@@ -54,7 +57,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
     });
   };
 
-  const handleAddManualReceipt = () => {
+  const handleAddManualReceipt = async () => {
     if (!manualReceiptForm.receiptNumber || !manualReceiptForm.studentName || !manualReceiptForm.amount || !manualReceiptForm.sentTo) {
       toast.error('Please fill in all required fields');
       return;
@@ -65,24 +68,35 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
       return;
     }
 
-    onAddManualReceipt({
-      receiptNumber: manualReceiptForm.receiptNumber,
-      studentName: manualReceiptForm.studentName,
-      amount: parseFloat(manualReceiptForm.amount),
-      sentVia: manualReceiptForm.sentVia,
-      sentTo: manualReceiptForm.sentTo,
-      paymentDescription: manualReceiptForm.paymentDescription,
-    });
+    try {
+      setIsSubmittingManualReceipt(true);
+      const didCreate = await onAddManualReceipt({
+        receiptNumber: manualReceiptForm.receiptNumber,
+        studentName: manualReceiptForm.studentName,
+        amount: parseFloat(manualReceiptForm.amount),
+        sentVia: manualReceiptForm.sentVia,
+        sentTo: manualReceiptForm.sentTo,
+        paymentDescription: manualReceiptForm.paymentDescription,
+      });
 
-    resetManualForm();
-    setIsManualReceiptDialogOpen(false);
-    toast.success('Manual receipt added successfully');
+      if (!didCreate) return;
+
+      resetManualForm();
+      setIsManualReceiptDialogOpen(false);
+      toast.success('Manual receipt added successfully');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to add manual receipt');
+    } finally {
+      setIsSubmittingManualReceipt(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'sent':
         return <Badge className="bg-blue-500 hover:bg-blue-600"><Clock className="w-3 h-3 mr-1" />Sent</Badge>;
+      case 'pending':
+        return <Badge className="bg-amber-500 hover:bg-amber-600"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
       case 'delivered':
         return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Delivered</Badge>;
       case 'read':
@@ -275,8 +289,19 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                   </div>
 
                   <div className="flex gap-2 mt-4">
-                    <Button onClick={handleAddManualReceipt} className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]">Add Receipt</Button>
-                    <Button variant="outline" onClick={() => { setIsManualReceiptDialogOpen(false); resetManualForm(); }} className="flex-1">
+                    <Button
+                      onClick={handleAddManualReceipt}
+                      disabled={isSubmittingManualReceipt}
+                      className="flex-1 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
+                    >
+                      {isSubmittingManualReceipt ? "Adding..." : "Add Receipt"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={isSubmittingManualReceipt}
+                      onClick={() => { setIsManualReceiptDialogOpen(false); resetManualForm(); }}
+                      className="flex-1"
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -370,7 +395,6 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                         onClick={(e) => {
                           e.stopPropagation();
                           onResendReceipt(receipt.id);
-                          toast.success('Receipt resent successfully!');
                         }}
                         className="text-[#1C4D8D] hover:text-[#0F2854] hover:bg-[#BDE8F5]/20"
                       >
@@ -416,6 +440,12 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                   <Clock className="w-4 h-4" /> Sent
                 </span>
                 <Badge className="bg-blue-500">{receipts.filter(r => r.status === 'sent').length}</Badge>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                <span className="text-[#BDE8F5] flex items-center gap-2">
+                  <Clock className="w-4 h-4" /> Pending
+                </span>
+                <Badge className="bg-amber-500">{receipts.filter(r => r.status === 'pending').length}</Badge>
               </div>
               <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
                 <span className="text-[#BDE8F5] flex items-center gap-2">

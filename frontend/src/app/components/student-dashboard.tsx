@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
@@ -30,6 +30,14 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 
+const EVENT_SYNC_STORAGE_KEY = "events_last_updated_at";
+const EVENT_SYNC_WINDOW_EVENT = "events-updated";
+const API_BASE = String(
+  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000",
+).replace(/\/+$/, "");
+
+const apiUrl = (path: string) => `${API_BASE}${path}`;
+
 interface StudentInfo {
   id: string;
   name: string;
@@ -59,7 +67,7 @@ interface PaymentHistory {
   receiptNumber: string;
 }
 
-interface Event {
+interface DashboardEvent {
   id: string;
   title: string;
   date: string;
@@ -100,7 +108,10 @@ const toDateInputValue = (value: unknown) => {
   if (!value) return "";
   const parsed = new Date(String(value));
   if (Number.isNaN(parsed.getTime())) return "";
-  return parsed.toISOString().split("T")[0];
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const parseJwtToken = (token: string): JwtPayload | null => {
@@ -126,7 +137,10 @@ const parseSessionUser = (raw: string | null): SessionUser | null => {
   }
 };
 
-const inferEventType = (title: string, description: string): Event["type"] => {
+const inferEventType = (
+  title: string,
+  description: string,
+): DashboardEvent["type"] => {
   const text = `${title} ${description}`.toLowerCase();
   if (text.includes("sport")) return "sports";
   if (text.includes("meeting") || text.includes("parent")) return "meeting";
@@ -134,15 +148,113 @@ const inferEventType = (title: string, description: string): Event["type"] => {
   return "academic";
 };
 
+const parseEventDateTime = (eventRow: any) => {
+  const directDateTime =
+    eventRow.eventDateTime ??
+    eventRow.dateTime ??
+    eventRow.event_datetime ??
+    eventRow.date ??
+    eventRow.event_date;
+
+  const parsedDirect = new Date(String(directDateTime));
+  if (directDateTime && !Number.isNaN(parsedDirect.getTime())) {
+    return parsedDirect;
+  }
+
+  const datePart = toStringValue(eventRow.date ?? eventRow.event_date);
+  const timePart = toStringValue(eventRow.time ?? eventRow.event_time);
+  if (datePart) {
+    const combined = new Date(`${datePart}T${timePart || "00:00:00"}`);
+    if (!Number.isNaN(combined.getTime())) return combined;
+
+    const dateOnly = new Date(datePart);
+    if (!Number.isNaN(dateOnly.getTime())) return dateOnly;
+  }
+
+  const fallback = new Date(String(eventRow.createdAt));
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const normalizeEventRows = (rows: any[]): DashboardEvent[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTime = today.getTime();
+
+  const normalized = rows
+    .map((eventRow: any) => {
+      const dateTime = parseEventDateTime(eventRow);
+      if (!dateTime) return null;
+      const eventDay = new Date(
+        dateTime.getFullYear(),
+        dateTime.getMonth(),
+        dateTime.getDate(),
+      ).getTime();
+
+      return {
+        id: toStringValue(eventRow._id ?? eventRow.id),
+        title: toStringValue(eventRow.title),
+        date: toDateInputValue(dateTime),
+        time: dateTime.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        location: toStringValue(eventRow.location),
+        description: toStringValue(eventRow.description),
+        type: inferEventType(
+          toStringValue(eventRow.title),
+          toStringValue(eventRow.description),
+        ),
+        __timestamp: dateTime.getTime(),
+        __eventDay: eventDay,
+      };
+    })
+    .filter(
+      (
+        eventRow,
+      ): eventRow is DashboardEvent & { __timestamp: number; __eventDay: number } =>
+        Boolean(eventRow),
+    );
+
+  return normalized
+    .sort((a, b) => {
+      const aUpcoming = a.__eventDay >= todayTime;
+      const bUpcoming = b.__eventDay >= todayTime;
+
+      if (aUpcoming !== bUpcoming) {
+        return aUpcoming ? -1 : 1;
+      }
+
+      return aUpcoming
+        ? a.__timestamp - b.__timestamp
+        : b.__timestamp - a.__timestamp;
+    })
+    .map(({ __timestamp, __eventDay, ...eventRow }) => eventRow);
+};
+
 const fetchJsonSafe = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, init);
-  const rawText = await response.text();
   try {
-    return { response, data: rawText ? JSON.parse(rawText) : null };
-  } catch {
+    const response = await fetch(url, init);
+    const rawText = await response.text();
+    try {
+      return { response, data: rawText ? JSON.parse(rawText) : null };
+    } catch {
+      return {
+        response,
+        data: {
+          success: false,
+          message:
+            rawText?.slice?.(0, 160) ||
+            `Invalid JSON response from ${url} (status ${response.status})`,
+        },
+      };
+    }
+  } catch (error: any) {
     return {
-      response,
-      data: { success: false, message: `Invalid response from ${url}` },
+      response: { ok: false, status: 0 } as Response,
+      data: {
+        success: false,
+        message: error?.message || "Network error",
+      },
     };
   }
 };
@@ -391,7 +503,17 @@ export default function StudentDashboard() {
   const [studentData, setStudentData] = useState<StudentInfo>(EMPTY_STUDENT_INFO);
   const [paymentDues, setPaymentDues] = useState<PaymentDue[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([]);
+
+  const loadStudentEvents = useCallback(async () => {
+    const eventsResult = await fetchJsonSafe(apiUrl("/api/events"));
+    if (eventsResult.response.ok && eventsResult.data?.success) {
+      const eventRows = Array.isArray(eventsResult.data.events)
+        ? eventsResult.data.events
+        : [];
+      setUpcomingEvents(normalizeEventRows(eventRows));
+    }
+  }, []);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -434,14 +556,14 @@ export default function StudentDashboard() {
         setIsLoading(true);
 
         const [studentResult, feesResult, eventsResult] = await Promise.all([
-          fetchJsonSafe(`http://localhost:5000/api/students/${userId}`),
-          fetchJsonSafe(`http://localhost:5000/api/fees/student/${userId}`),
-          fetchJsonSafe("http://localhost:5000/api/events"),
+          fetchJsonSafe(apiUrl(`/api/students/${userId}`)),
+          fetchJsonSafe(apiUrl(`/api/fees/student/${userId}`)),
+          fetchJsonSafe(apiUrl("/api/events")),
         ]);
 
         let studentRow = studentResult.data?.student || null;
         if (!studentResult.response.ok || !studentRow) {
-          const studentsFallback = await fetchJsonSafe("http://localhost:5000/api/students");
+          const studentsFallback = await fetchJsonSafe(apiUrl("/api/students"));
           const rows = Array.isArray(studentsFallback.data)
             ? studentsFallback.data
             : Array.isArray(studentsFallback.data?.students)
@@ -514,37 +636,7 @@ export default function StudentDashboard() {
         setPaymentHistory(normalizedHistory);
 
         const eventRows = Array.isArray(eventsResult.data?.events) ? eventsResult.data.events : [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const normalizedEvents: Event[] = eventRows
-          .map((eventRow: any) => {
-            const dateTime = new Date(eventRow.eventDateTime);
-            return {
-              id: toStringValue(eventRow._id ?? eventRow.id),
-              title: toStringValue(eventRow.title),
-              date: toDateInputValue(dateTime),
-              time: dateTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              location: toStringValue(eventRow.location),
-              description: toStringValue(eventRow.description),
-              type: inferEventType(
-                toStringValue(eventRow.title),
-                toStringValue(eventRow.description),
-              ),
-              __timestamp: dateTime.getTime(),
-            };
-          })
-          .filter((eventRow) => {
-            const eventDate = new Date(eventRow.date);
-            eventDate.setHours(0, 0, 0, 0);
-            return eventDate.getTime() >= today.getTime();
-          })
-          .sort((a, b) => a.__timestamp - b.__timestamp)
-          .map(({ __timestamp, ...eventRow }) => eventRow);
-
-        setUpcomingEvents(normalizedEvents);
+        setUpcomingEvents(normalizeEventRows(eventRows));
       } catch (error: any) {
         toast.error(error?.message || "Failed to load student dashboard data");
       } finally {
@@ -554,6 +646,29 @@ export default function StudentDashboard() {
 
     loadDashboardData();
   }, [navigate]);
+
+  useEffect(() => {
+    const syncEvents = () => {
+      loadStudentEvents();
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === EVENT_SYNC_STORAGE_KEY) {
+        syncEvents();
+      }
+    };
+
+    window.addEventListener(EVENT_SYNC_WINDOW_EVENT, syncEvents);
+    window.addEventListener("storage", handleStorage);
+    syncEvents();
+    const intervalId = window.setInterval(syncEvents, 30000);
+
+    return () => {
+      window.removeEventListener(EVENT_SYNC_WINDOW_EVENT, syncEvents);
+      window.removeEventListener("storage", handleStorage);
+      window.clearInterval(intervalId);
+    };
+  }, [loadStudentEvents]);
 
   const handleDownloadReceipt = (payment: PaymentHistory) => {
     try {
@@ -924,32 +1039,42 @@ export default function StudentDashboard() {
                 <Separator className="mb-4" />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {upcomingEvents.slice(0, 3).map((event) => (
-                    <div
-                      key={event.id}
-                      className="p-4 border-2 border-[#BDE8F5] rounded-lg hover:border-[#4988C4] hover:shadow-md transition-all"
-                    >
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <h3 className="text-[#0F2854] font-bold text-sm">
-                          {event.title}
-                        </h3>
-                        {getEventTypeBadge(event.type)}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                        {event.description}
-                      </p>
-                      <div className="space-y-1">
-                        <p className="text-xs text-[#4988C4] font-medium flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {event.date}
+                  {upcomingEvents
+                    .filter((event) => {
+                      const eventDate = new Date(event.date);
+                      if (Number.isNaN(eventDate.getTime())) return false;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      eventDate.setHours(0, 0, 0, 0);
+                      return eventDate.getTime() >= today.getTime();
+                    })
+                    .slice(0, 3)
+                    .map((event) => (
+                      <div
+                        key={event.id}
+                        className="p-4 border-2 border-[#BDE8F5] rounded-lg hover:border-[#4988C4] hover:shadow-md transition-all"
+                      >
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <h3 className="text-[#0F2854] font-bold text-sm">
+                            {event.title}
+                          </h3>
+                          {getEventTypeBadge(event.type)}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                          {event.description}
                         </p>
-                        <p className="text-xs text-[#4988C4] font-medium flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {event.time}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-xs text-[#4988C4] font-medium flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {event.date}
+                          </p>
+                          <p className="text-xs text-[#4988C4] font-medium flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {event.time}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </Card>
             </div>
@@ -1119,7 +1244,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="text-center py-12">
                   <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                  <p className="text-muted-foreground">No upcoming events</p>
+                  <p className="text-muted-foreground">No events found</p>
                 </div>
               )}
             </Card>

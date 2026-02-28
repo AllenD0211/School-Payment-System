@@ -3,6 +3,7 @@ import { Card } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
+import { Textarea } from "@/app/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -85,11 +86,34 @@ type FeeForm = {
   status: "pending" | "paid" | "overdue";
 };
 
+type SentNotification = {
+  id: string;
+  recipient: string;
+  message: string;
+  timestamp: string;
+  status: "sent" | "pending";
+  method: "sms" | "email";
+};
+
+type StudentTableProps = {
+  onNotificationSent?: (notification: SentNotification) => void;
+};
+
+type NotifyForm = {
+  method: "sms" | "email";
+  message: string;
+};
+
 const EMPTY_FEE_FORM: FeeForm = {
   fee_type: "",
   amount: "",
   due_date: "",
   status: "pending",
+};
+
+const EMPTY_NOTIFY_FORM: NotifyForm = {
+  method: "sms",
+  message: "",
 };
 
 const toStringValue = (value: unknown) => {
@@ -197,7 +221,22 @@ const toInputDateValue = (dateValue?: string | Date) => {
   return parsed.toISOString().split("T")[0];
 };
 
-export function StudentTable() {
+const normalizeNotificationPayload = (raw: any): SentNotification | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const method = toStringValue(raw.method).toLowerCase() === "sms" ? "sms" : "email";
+  const status = toStringValue(raw.status).toLowerCase() === "sent" ? "sent" : "pending";
+
+  return {
+    id: toStringValue(raw.id ?? raw._id),
+    recipient: toStringValue(raw.recipient),
+    message: toStringValue(raw.message),
+    timestamp: toStringValue(raw.timestamp ?? raw.sentAt ?? raw.createdAt),
+    status,
+    method,
+  };
+};
+
+export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   const [selectedStudentUserId, setSelectedStudentUserId] = useState<string | null>(null);
@@ -209,6 +248,9 @@ export function StudentTable() {
   const [isSavingFee, setIsSavingFee] = useState(false);
   const [editingFeeId, setEditingFeeId] = useState<string | null>(null);
   const [feeForm, setFeeForm] = useState<FeeForm>(EMPTY_FEE_FORM);
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [notifyForm, setNotifyForm] = useState<NotifyForm>(EMPTY_NOTIFY_FORM);
 
   const loadStudents = async () => {
     try {
@@ -424,8 +466,10 @@ export function StudentTable() {
     setSelectedStudentUserId(null);
     setDetail(null);
     setIsAddFeeModalOpen(false);
+    setIsNotifyModalOpen(false);
     setEditingFeeId(null);
     setFeeForm(EMPTY_FEE_FORM);
+    setNotifyForm(EMPTY_NOTIFY_FORM);
   };
 
   const openEditFeeInline = (fee: FeeRecord) => {
@@ -574,28 +618,58 @@ export function StudentTable() {
     }
   };
 
-  const handleNotifyParent = async () => {
-    if (!detail?.student?.student_user_id) return;
+  const openNotifyParentModal = () => {
     if (!detail?.parent) {
       toast.error("This student is not yet connected to a parent account.");
       return;
     }
 
-    const methodInput = window.prompt("Notify method: sms or email", "sms");
-    if (!methodInput) return;
-    const method = methodInput.trim().toLowerCase();
-    if (method !== "sms" && method !== "email") {
-      toast.error("Method must be sms or email.");
+    const hasSmsRecipient = Boolean(detail.parent.contact_number);
+    const hasEmailRecipient = Boolean(detail.parent.email);
+
+    let defaultMethod: NotifyForm["method"] = "sms";
+    if (!hasSmsRecipient && hasEmailRecipient) {
+      defaultMethod = "email";
+    }
+
+    setNotifyForm({
+      method: defaultMethod,
+      message: "",
+    });
+    setIsNotifyModalOpen(true);
+  };
+
+  const notifyRecipient =
+    notifyForm.method === "email"
+      ? toStringValue(detail?.parent?.email)
+      : toStringValue(detail?.parent?.contact_number);
+
+  const handleSendNotifyParent = async () => {
+    if (!detail?.student?.student_user_id) return;
+    if (!detail?.parent) {
+      toast.error("This student is not yet connected to a parent account.");
+      return;
+    }
+    if (!notifyRecipient) {
+      toast.error(
+        notifyForm.method === "email"
+          ? "Parent email is not available."
+          : "Parent phone number is not available.",
+      );
       return;
     }
 
     try {
+      setIsSendingNotification(true);
       const { response, data } = await fetchJsonSafe(
         `http://localhost:5000/api/admin/students/${detail.student.student_user_id}/notify`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ method }),
+          body: JSON.stringify({
+            method: notifyForm.method,
+            message: notifyForm.message.trim(),
+          }),
         },
       );
 
@@ -603,9 +677,18 @@ export function StudentTable() {
         throw new Error(data.message || "Failed to notify parent");
       }
 
-      toast.success(`Parent notified via ${method.toUpperCase()}.`);
+      const normalizedNotification = normalizeNotificationPayload(data.notification);
+      if (normalizedNotification && onNotificationSent) {
+        onNotificationSent(normalizedNotification);
+      }
+
+      toast.success(`Parent notified via ${notifyForm.method.toUpperCase()}.`);
+      setIsNotifyModalOpen(false);
+      setNotifyForm(EMPTY_NOTIFY_FORM);
     } catch (error: any) {
       toast.error(error.message || "Failed to notify parent");
+    } finally {
+      setIsSendingNotification(false);
     }
   };
 
@@ -862,7 +945,7 @@ export function StudentTable() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={handleNotifyParent}
+                                onClick={openNotifyParentModal}
                                 className="border-[#4988C4] text-[#1C4D8D]"
                               >
                                 <Bell className="w-3.5 h-3.5 mr-1" />
@@ -953,6 +1036,103 @@ export function StudentTable() {
                     className="bg-[#1C4D8D] hover:bg-[#0F2854]"
                   >
                     {isSavingFee ? "Saving..." : "Save Fee"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog
+              open={isNotifyModalOpen}
+              onOpenChange={(open) => {
+                setIsNotifyModalOpen(open);
+                if (!open) {
+                  setNotifyForm(EMPTY_NOTIFY_FORM);
+                }
+              }}
+            >
+              <DialogContent className="max-w-lg bg-white">
+                <DialogHeader>
+                  <DialogTitle className="text-[#0F2854]">Notify Parent</DialogTitle>
+                  <DialogDescription>
+                    Send an SMS or email notification to the connected parent account.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-[#BDE8F5] bg-[#F7FBFF] p-3 text-sm">
+                    <p className="text-[#0F2854] font-semibold">
+                      {composeName(
+                        detail.student.first_name,
+                        detail.student.middle_name,
+                        detail.student.last_name,
+                      ) || detail.student.student_id}
+                    </p>
+                    <p className="text-xs text-[#4988C4] mt-1">
+                      Student ID: {detail.student.student_id || "-"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#0F2854]">
+                      Notification Method
+                    </label>
+                    <select
+                      value={notifyForm.method}
+                      onChange={(e) =>
+                        setNotifyForm((prev) => ({
+                          ...prev,
+                          method: e.target.value as NotifyForm["method"],
+                        }))
+                      }
+                      className="h-9 rounded-md border px-3 text-sm w-full"
+                    >
+                      <option value="sms">SMS</option>
+                      <option value="email">Email</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#0F2854]">
+                      Recipient
+                    </label>
+                    <Input value={notifyRecipient || "Not Available"} disabled />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#0F2854]">
+                      Message (Optional)
+                    </label>
+                    <Textarea
+                      value={notifyForm.message}
+                      onChange={(e) =>
+                        setNotifyForm((prev) => ({ ...prev, message: e.target.value }))
+                      }
+                      rows={4}
+                      placeholder="Enter custom reminder message for the parent..."
+                    />
+                    <p className="text-xs text-[#4988C4]">
+                      Leave empty to send the default system reminder message.
+                    </p>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsNotifyModalOpen(false);
+                      setNotifyForm(EMPTY_NOTIFY_FORM);
+                    }}
+                    disabled={isSendingNotification}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendNotifyParent}
+                    disabled={isSendingNotification}
+                    className="bg-[#1C4D8D] hover:bg-[#0F2854]"
+                  >
+                    {isSendingNotification ? "Sending..." : "Send Notification"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

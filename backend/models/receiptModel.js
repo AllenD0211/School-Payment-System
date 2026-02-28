@@ -1,32 +1,56 @@
-// models/receiptModel.js
 const mongoose = require("mongoose");
 
 const receiptSchema = new mongoose.Schema(
   {
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
-      required: true
+    receiptNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true
     },
-
-    feeId: {
+    parentUserId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Fee",
-      required: true
+      ref: "User",
+      default: null
     },
-
-    amountPaid: { type: Number, required: true },
-
+    studentUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+    studentName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    paymentDescription: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    sentTo: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true
+    },
+    sentVia: {
+      type: String,
+      enum: ["email", "sms"],
+      default: "email"
+    },
     paymentDate: {
       type: Date,
       default: Date.now
     },
-
-    sentTo: String,
-
     status: {
       type: String,
-      enum: ["sent", "pending"],
+      enum: ["sent", "pending", "delivered", "read", "acknowledged"],
       default: "sent"
     }
   },
