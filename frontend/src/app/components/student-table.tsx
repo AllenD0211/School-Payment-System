@@ -13,6 +13,15 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -21,6 +30,7 @@ import {
   TableRow,
 } from "@/app/components/ui/table";
 import {
+  AlertCircle,
   ArrowLeft,
   Bell,
   ReceiptText,
@@ -47,8 +57,10 @@ type StudentListItem = {
 
 type ParentInfo = {
   parent_id: string;
-  father_name: string;
-  mother_name: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  gender: string;
   contact_number: string;
   email: string;
 };
@@ -97,6 +109,7 @@ type SentNotification = {
 
 type StudentTableProps = {
   onNotificationSent?: (notification: SentNotification) => void;
+  onStudentDeleted?: () => void;
 };
 
 type NotifyForm = {
@@ -197,6 +210,12 @@ const fetchJsonSafe = async (url: string, init?: RequestInit) => {
   return { response, data: parsed };
 };
 
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem("token");
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+};
+
 const toReadableStatus = (status: FeeRecord["status"]) => {
   if (status === "paid") return "Paid";
   if (status === "overdue") return "Overdue";
@@ -236,7 +255,10 @@ const normalizeNotificationPayload = (raw: any): SentNotification | null => {
   };
 };
 
-export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
+export function StudentTable({
+  onNotificationSent,
+  onStudentDeleted,
+}: StudentTableProps = {}) {
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   const [selectedStudentUserId, setSelectedStudentUserId] = useState<string | null>(null);
@@ -248,9 +270,14 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
   const [isSavingFee, setIsSavingFee] = useState(false);
   const [editingFeeId, setEditingFeeId] = useState<string | null>(null);
   const [feeForm, setFeeForm] = useState<FeeForm>(EMPTY_FEE_FORM);
+  const [deleteFeeDialogOpen, setDeleteFeeDialogOpen] = useState(false);
+  const [feeToDelete, setFeeToDelete] = useState<FeeRecord | null>(null);
+  const [isDeletingFee, setIsDeletingFee] = useState(false);
   const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [notifyForm, setNotifyForm] = useState<NotifyForm>(EMPTY_NOTIFY_FORM);
+  const [deleteStudentDialogOpen, setDeleteStudentDialogOpen] = useState(false);
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
 
   const loadStudents = async () => {
     try {
@@ -323,6 +350,9 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
       try {
         const { response, data } = await fetchJsonSafe(
           `http://localhost:5000/api/admin/students/${studentUserId}`,
+          {
+            headers: getAuthHeaders(),
+          },
         );
 
         if (response.ok && data?.student) {
@@ -359,10 +389,20 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
         }
 
         if (data?.parent) {
+          const parentGender = toStringValue(
+            data.parent.gender ?? data.parent.parent_gender,
+          );
+
           parentDetail = {
             parent_id: toStringValue(data.parent.parent_id ?? data.parent._id),
-            father_name: toStringValue(data.parent.father_name ?? data.parent.firstName),
-            mother_name: toStringValue(data.parent.mother_name ?? data.parent.middleName),
+            first_name: toStringValue(
+              data.parent.first_name ?? data.parent.firstName ?? data.parent.father_name,
+            ),
+            middle_name: toStringValue(
+              data.parent.middle_name ?? data.parent.middleName ?? data.parent.mother_name,
+            ),
+            last_name: toStringValue(data.parent.last_name ?? data.parent.lastName),
+            gender: parentGender,
             contact_number: toStringValue(data.parent.contact_number ?? data.parent.phoneNumber),
             email: toStringValue(data.parent.email),
           };
@@ -459,6 +499,9 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
     setIsAddFeeModalOpen(false);
     setEditingFeeId(null);
     setFeeForm(EMPTY_FEE_FORM);
+    setDeleteFeeDialogOpen(false);
+    setFeeToDelete(null);
+    setDeleteStudentDialogOpen(false);
     await loadStudentDetail(studentUserId);
   };
 
@@ -469,6 +512,9 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
     setIsNotifyModalOpen(false);
     setEditingFeeId(null);
     setFeeForm(EMPTY_FEE_FORM);
+    setDeleteFeeDialogOpen(false);
+    setFeeToDelete(null);
+    setDeleteStudentDialogOpen(false);
     setNotifyForm(EMPTY_NOTIFY_FORM);
   };
 
@@ -588,19 +634,22 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
     }
   };
 
-  const handleDeleteFee = async (feeId: string) => {
-    if (!selectedStudentUserId) return;
+  const openDeleteFeeDialog = (fee: FeeRecord) => {
+    setFeeToDelete(fee);
+    setDeleteFeeDialogOpen(true);
+  };
 
-    const confirmed = window.confirm("Are you sure you want to delete this fee record?");
-    if (!confirmed) return;
+  const confirmDeleteFee = async () => {
+    if (!selectedStudentUserId || !feeToDelete) return;
 
     try {
-      let { response, data } = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}`, {
+      setIsDeletingFee(true);
+      let { response, data } = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeToDelete.fee_id}`, {
         method: "DELETE",
       });
 
       if (response.status === 404) {
-        const fallback = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}/delete`, {
+        const fallback = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeToDelete.fee_id}/delete`, {
           method: "POST",
         });
         response = fallback.response;
@@ -612,9 +661,13 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
       }
 
       toast.success("Fee deleted.");
+      setDeleteFeeDialogOpen(false);
+      setFeeToDelete(null);
       await refreshFeeTableOnly(selectedStudentUserId);
     } catch (error: any) {
       toast.error(error.message || "Failed to delete fee");
+    } finally {
+      setIsDeletingFee(false);
     }
   };
 
@@ -665,7 +718,10 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
         `http://localhost:5000/api/admin/students/${detail.student.student_user_id}/notify`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
             method: notifyForm.method,
             message: notifyForm.message.trim(),
@@ -689,6 +745,59 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
       toast.error(error.message || "Failed to notify parent");
     } finally {
       setIsSendingNotification(false);
+    }
+  };
+
+  const confirmDeleteStudentAccount = async () => {
+    const studentUserId = toStringValue(detail?.student?.student_user_id);
+    if (!studentUserId) {
+      toast.error("Student user ID is missing.");
+      return;
+    }
+
+    try {
+      setIsDeletingStudent(true);
+      let { response, data } = await fetchJsonSafe(
+        `http://localhost:5000/api/admin/students/${studentUserId}`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      if (response.status === 404) {
+        const fallback = await fetchJsonSafe(
+          `http://localhost:5000/api/admin/students/${studentUserId}/delete`,
+          {
+            method: "POST",
+            headers: getAuthHeaders(),
+          },
+        );
+        response = fallback.response;
+        data = fallback.data;
+      }
+
+      if (!response.ok || !data?.success) {
+        if (response.status === 404) {
+          throw new Error(
+            "Delete route not found. Please restart the backend server and try again.",
+          );
+        }
+        throw new Error(data?.message || "Failed to delete student account");
+      }
+
+      toast.success(data?.message || "Student account deleted successfully.");
+      setDeleteStudentDialogOpen(false);
+      setStudents((prev) =>
+        prev.filter((student) => student.student_user_id !== studentUserId),
+      );
+      handleBackToList();
+      await loadStudents();
+      onStudentDeleted?.();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete student account");
+    } finally {
+      setIsDeletingStudent(false);
     }
   };
 
@@ -716,6 +825,14 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
               </h2>
             </div>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setDeleteStudentDialogOpen(true)}
+            className="border-red-300 text-red-600 hover:text-red-700 hover:bg-red-50 self-start lg:self-auto"
+            disabled={isLoadingDetail || isDeletingStudent}
+          >
+            Delete Student Account
+          </Button>
 
         </div>
 
@@ -783,12 +900,16 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
               {detail.parent ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                   <p>
-                    <span className="font-semibold text-[#0F2854]">Father Name:</span>{" "}
-                    {detail.parent.father_name || "Not Provided"}
+                    <span className="font-semibold text-[#0F2854]">Parent Name:</span>{" "}
+                    {detail.parent.first_name || "Not Provided"}
                   </p>
                   <p>
-                    <span className="font-semibold text-[#0F2854]">Mother Name:</span>{" "}
-                    {detail.parent.mother_name || "Not Provided"}
+                    <span className="font-semibold text-[#0F2854]">Middle Name:</span>{" "}
+                    {detail.parent.middle_name || "Not Provided"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-[#0F2854]">Last Name:</span>{" "}
+                    {detail.parent.last_name || "Not Provided"}
                   </p>
                   <p>
                     <span className="font-semibold text-[#0F2854]">Contact Number:</span>{" "}
@@ -937,7 +1058,7 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleDeleteFee(fee.fee_id)}
+                                onClick={() => openDeleteFeeDialog(fee)}
                                 className="text-red-600 hover:text-red-700"
                               >
                                 Delete
@@ -969,6 +1090,136 @@ export function StudentTable({ onNotificationSent }: StudentTableProps = {}) {
               </Table>
               </div>
             </Card>
+
+            <AlertDialog
+              open={deleteFeeDialogOpen}
+              onOpenChange={(open) => {
+                if (isDeletingFee && !open) return;
+                setDeleteFeeDialogOpen(open);
+                if (!open) {
+                  setFeeToDelete(null);
+                }
+              }}
+            >
+              <AlertDialogContent className="max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    Delete Fee Record
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {feeToDelete && (
+                      <div className="space-y-3 mt-2">
+                        <p>
+                          Are you sure you want to delete{" "}
+                          <span className="font-semibold text-red-600">
+                            "{feeToDelete.fee_type || "this fee record"}"
+                          </span>
+                          ?
+                        </p>
+                        <div className="p-3 bg-red-50 rounded-lg border border-red-200 space-y-2">
+                          <p className="text-sm">
+                            <span className="font-semibold">Amount:</span>{" "}
+                            ₱{Number(feeToDelete.amount).toLocaleString()}
+                          </p>
+                          <p className="text-sm">
+                            <span className="font-semibold">Due Date:</span>{" "}
+                            {formatDate(feeToDelete.due_date)}
+                          </p>
+                          <p className="text-sm">
+                            <span className="font-semibold">Status:</span>{" "}
+                            {toReadableStatus(feeToDelete.status)}
+                          </p>
+                        </div>
+                        <p className="text-sm text-red-600 font-semibold">
+                          ⚠️ This action cannot be undone.
+                        </p>
+                      </div>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex gap-2 mt-4">
+                  <AlertDialogCancel className="flex-1" disabled={isDeletingFee}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void confirmDeleteFee();
+                    }}
+                    disabled={isDeletingFee || !feeToDelete}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                  >
+                    {isDeletingFee ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+              open={deleteStudentDialogOpen}
+              onOpenChange={(open) => {
+                if (isDeletingStudent && !open) return;
+                setDeleteStudentDialogOpen(open);
+              }}
+            >
+              <AlertDialogContent className="max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    Delete Student Account
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    <div className="space-y-3 mt-2">
+                      <p>
+                        Are you sure you want to permanently delete this student account?
+                      </p>
+                      <div className="p-3 bg-red-50 rounded-lg border border-red-200 space-y-2 text-sm">
+                        <p>
+                          <span className="font-semibold">Student:</span>{" "}
+                          {detail?.student
+                            ? composeName(
+                                detail.student.first_name,
+                                detail.student.middle_name,
+                                detail.student.last_name,
+                              ) || detail.student.student_id
+                            : "Not Provided"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Student ID:</span>{" "}
+                          {detail?.student?.student_id || "Not Provided"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Grade & Section:</span>{" "}
+                          {detail?.student?.gradeSection || "Not Provided"}
+                        </p>
+                      </div>
+                      <p className="text-sm text-red-600 font-semibold">
+                        This will remove the student profile, login account, and related fee/link records.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex gap-2 mt-4">
+                  <AlertDialogCancel
+                    className="flex-1"
+                    disabled={isDeletingStudent}
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void confirmDeleteStudentAccount();
+                    }}
+                    disabled={isDeletingStudent || !detail?.student?.student_user_id}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                  >
+                    {isDeletingStudent ? "Deleting..." : "Delete Account"}
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <Dialog
               open={isAddFeeModalOpen}

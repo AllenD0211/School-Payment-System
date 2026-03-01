@@ -25,6 +25,9 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Link2,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -77,6 +80,16 @@ interface DashboardEvent {
   type: "academic" | "sports" | "cultural" | "meeting";
 }
 
+interface ParentLinkRequest {
+  id: string;
+  parentId: string;
+  parentUserId: string;
+  parentName: string;
+  parentEmail: string;
+  parentPhone: string;
+  requestedAt: string;
+}
+
 type JwtPayload = {
   id?: string;
   userType?: string;
@@ -112,6 +125,30 @@ const toDateInputValue = (value: unknown) => {
   const month = String(parsed.getMonth() + 1).padStart(2, "0");
   const day = String(parsed.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const toBirthYear = (value: unknown) => {
+  if (!value) return "";
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return "";
+  return String(parsed.getFullYear());
+};
+
+const buildRollNumber = (birthdate: unknown, section: string, grade: string) => {
+  const birthYear = toBirthYear(birthdate);
+  if (!birthYear) return "Not Provided";
+  const safeSection =
+    section && section !== "Not Provided" ? section : "NA";
+  const safeGrade =
+    grade && grade !== "Not Provided" ? grade : "NA";
+  return `${birthYear}-${safeSection} - ${safeGrade}`;
+};
+
+const formatDateTimeValue = (value: unknown) => {
+  if (!value) return "-";
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString();
 };
 
 const parseJwtToken = (token: string): JwtPayload | null => {
@@ -500,10 +537,14 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const [hideAmounts, setHideAmounts] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [studentUserId, setStudentUserId] = useState("");
   const [studentData, setStudentData] = useState<StudentInfo>(EMPTY_STUDENT_INFO);
   const [paymentDues, setPaymentDues] = useState<PaymentDue[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([]);
+  const [parentLinkRequests, setParentLinkRequests] = useState<ParentLinkRequest[]>([]);
+  const [isLoadingParentLinkRequests, setIsLoadingParentLinkRequests] = useState(false);
+  const [respondingLinkRequestId, setRespondingLinkRequestId] = useState("");
 
   const loadStudentEvents = useCallback(async () => {
     const eventsResult = await fetchJsonSafe(apiUrl("/api/events"));
@@ -512,6 +553,42 @@ export default function StudentDashboard() {
         ? eventsResult.data.events
         : [];
       setUpcomingEvents(normalizeEventRows(eventRows));
+    }
+  }, []);
+
+  const loadParentLinkRequests = useCallback(async (resolvedStudentUserId: string) => {
+    if (!resolvedStudentUserId) {
+      setParentLinkRequests([]);
+      return;
+    }
+
+    try {
+      setIsLoadingParentLinkRequests(true);
+      const { response, data } = await fetchJsonSafe(
+        apiUrl(`/api/students/${resolvedStudentUserId}/parent-link-requests`),
+      );
+
+      if (!response.ok || !data?.success) {
+        setParentLinkRequests([]);
+        return;
+      }
+
+      const rows = Array.isArray(data.requests) ? data.requests : [];
+      setParentLinkRequests(
+        rows.map((row: any) => ({
+          id: toStringValue(row.id),
+          parentId: toStringValue(row.parentId),
+          parentUserId: toStringValue(row.parentUserId),
+          parentName: toStringValue(row.parentName) || "Parent",
+          parentEmail: toStringValue(row.parentEmail),
+          parentPhone: toStringValue(row.parentPhone),
+          requestedAt: toStringValue(row.requestedAt),
+        })),
+      );
+    } catch {
+      setParentLinkRequests([]);
+    } finally {
+      setIsLoadingParentLinkRequests(false);
     }
   }, []);
 
@@ -554,6 +631,7 @@ export default function StudentDashboard() {
 
       try {
         setIsLoading(true);
+        setStudentUserId(userId);
 
         const [studentResult, feesResult, eventsResult] = await Promise.all([
           fetchJsonSafe(apiUrl(`/api/students/${userId}`)),
@@ -583,14 +661,17 @@ export default function StudentDashboard() {
         const studentId = toStringValue(studentRow.studentId ?? studentRow.student_id);
         const gradeSection = toStringValue(studentRow.gradeSection);
         const [gradePart, ...sectionParts] = gradeSection.split(" - ");
+        const gradeValue = gradePart || gradeSection || "Not Provided";
+        const sectionValue = sectionParts.join(" - ") || "Not Provided";
+        const birthdateRaw = studentRow.birthdate ?? studentRow.birth_date;
 
         setStudentData({
           id: studentId,
           name: fullName || "Student",
-          grade: gradePart || gradeSection || "Not Provided",
-          section: sectionParts.join(" - ") || "Not Provided",
-          rollNumber: studentId || "Not Provided",
-          dateOfBirth: toDateInputValue(studentRow.birthdate ?? studentRow.birth_date),
+          grade: gradeValue,
+          section: sectionValue,
+          rollNumber: buildRollNumber(birthdateRaw, sectionValue, gradeValue),
+          dateOfBirth: toDateInputValue(birthdateRaw),
           enrollmentDate: toDateInputValue(studentRow.createdAt ?? studentRow.created_at),
           email:
             toStringValue(
@@ -637,6 +718,7 @@ export default function StudentDashboard() {
 
         const eventRows = Array.isArray(eventsResult.data?.events) ? eventsResult.data.events : [];
         setUpcomingEvents(normalizeEventRows(eventRows));
+        await loadParentLinkRequests(userId);
       } catch (error: any) {
         toast.error(error?.message || "Failed to load student dashboard data");
       } finally {
@@ -645,7 +727,7 @@ export default function StudentDashboard() {
     };
 
     loadDashboardData();
-  }, [navigate]);
+  }, [navigate, loadParentLinkRequests]);
 
   useEffect(() => {
     const syncEvents = () => {
@@ -683,6 +765,46 @@ export default function StudentDashboard() {
 
   const handlePayNow = (paymentId: string) => {
     toast.info("Redirecting to payment gateway...");
+  };
+
+  const handleParentLinkRequestAction = async (
+    requestId: string,
+    action: "approve" | "reject",
+  ) => {
+    if (!studentUserId) {
+      toast.error("Student session is not ready. Please refresh the page.");
+      return;
+    }
+
+    try {
+      setRespondingLinkRequestId(requestId);
+      const { response, data } = await fetchJsonSafe(
+        apiUrl(`/api/students/${studentUserId}/parent-link-requests/${requestId}/respond`),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action }),
+        },
+      );
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || "Failed to process parent link request");
+      }
+
+      toast.success(
+        data?.message ||
+          (action === "approve"
+            ? "Parent linked successfully"
+            : "Parent link request rejected"),
+      );
+      await loadParentLinkRequests(studentUserId);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to process parent link request");
+    } finally {
+      setRespondingLinkRequestId("");
+    }
   };
 
   const handleLogout = () => {
@@ -905,6 +1027,81 @@ export default function StudentDashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
+            <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-lg transition-all">
+              <div className="flex items-center gap-2 mb-4">
+                <Link2 className="w-5 h-5 text-[#1C4D8D]" />
+                <h2 className="text-xl font-semibold text-[#0F2854]">
+                  Parent Link Requests
+                </h2>
+              </div>
+              <Separator className="mb-4" />
+
+              {isLoadingParentLinkRequests ? (
+                <p className="text-sm text-[#4988C4]">Loading parent link requests...</p>
+              ) : parentLinkRequests.length === 0 ? (
+                <div className="rounded-lg border border-[#BDE8F5] bg-[#F7FBFF] px-4 py-3">
+                  <p className="text-sm text-[#4988C4]">
+                    No pending parent link requests.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {parentLinkRequests.map((request) => {
+                    const isProcessing = respondingLinkRequestId === request.id;
+                    return (
+                      <div
+                        key={request.id}
+                        className="rounded-lg border border-[#BDE8F5] bg-[#F7FBFF] p-4"
+                      >
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-[#0F2854]">
+                              {request.parentName}
+                            </p>
+                            <p className="text-xs text-[#4988C4]">
+                              Email: {request.parentEmail || "Not Provided"}
+                            </p>
+                            <p className="text-xs text-[#4988C4]">
+                              Phone: {request.parentPhone || "Not Provided"}
+                            </p>
+                            <p className="text-xs text-[#5E88B5]">
+                              Requested: {formatDateTimeValue(request.requestedAt)}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handleParentLinkRequestAction(request.id, "approve")
+                              }
+                              disabled={isProcessing}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <UserCheck className="w-3.5 h-3.5 mr-1" />
+                              {isProcessing ? "Processing..." : "Confirm Link"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                handleParentLinkRequestAction(request.id, "reject")
+                              }
+                              disabled={isProcessing}
+                              className="border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              <UserX className="w-3.5 h-3.5 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Student Info */}
               <Card className="p-6 bg-white/95 backdrop-blur-sm hover:shadow-lg transition-all">

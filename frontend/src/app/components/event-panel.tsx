@@ -23,7 +23,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/app/components/ui/table";
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, AlertCircle, Search } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Calendar,
+  MapPin,
+  Clock,
+  AlertCircle,
+  Search,
+  ReceiptText,
+  TrendingUp,
+} from "lucide-react";
 
 export interface SchoolEvent {
   id: string;
@@ -322,18 +333,33 @@ export function EventTable({ events, onAddEvent, onUpdateEvent, onDeleteEvent }:
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <Card className="p-3 bg-gradient-to-br from-blue-50 to-transparent border-l-4 border-blue-500">
-            <p className="text-xs text-gray-600">Total Events</p>
-            <p className="text-2xl font-bold text-blue-600">{events.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <Card className="gap-0 rounded-2xl border border-[#3B82F6] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+            <div className="flex min-h-[98px] items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Total Events</p>
+                <p className="mt-2 text-4xl font-bold text-[#2563EB]">{events.length}</p>
+              </div>
+              <ReceiptText className="h-8 w-8 text-[#60A5FA]" />
+            </div>
           </Card>
-          <Card className="p-3 bg-gradient-to-br from-green-50 to-transparent border-l-4 border-green-500">
-            <p className="text-xs text-gray-600">Upcoming</p>
-            <p className="text-2xl font-bold text-green-600">{upcomingCount}</p>
+          <Card className="gap-0 rounded-2xl border border-[#22C55E] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+            <div className="flex min-h-[98px] items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Upcoming</p>
+                <p className="mt-2 text-4xl font-bold text-[#16A34A]">{upcomingCount}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-[#22C55E]" />
+            </div>
           </Card>
-          <Card className="p-3 bg-gradient-to-br from-gray-50 to-transparent border-l-4 border-gray-500">
-            <p className="text-xs text-gray-600">Past</p>
-            <p className="text-2xl font-bold text-gray-600">{pastCount}</p>
+          <Card className="gap-0 rounded-2xl border border-[#6B7280] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+            <div className="flex min-h-[98px] items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Past</p>
+                <p className="mt-2 text-4xl font-bold text-[#4B5563]">{pastCount}</p>
+              </div>
+              <Clock className="h-8 w-8 text-[#6B7280]" />
+            </div>
           </Card>
         </div>
 

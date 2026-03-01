@@ -2,7 +2,20 @@ import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Separator } from "@/app/components/ui/separator";
-import { CheckCheck, Clock, Bell, Trash2, MessageSquare, Mail, Search, AlertCircle } from "lucide-react";
+import {
+  CheckCheck,
+  Clock,
+  Bell,
+  Trash2,
+  MessageSquare,
+  Mail,
+  Search,
+  AlertCircle,
+  ReceiptText,
+  TrendingUp,
+  ThumbsUp,
+  Smartphone,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Input } from "@/app/components/ui/input";
@@ -27,15 +40,17 @@ export interface Notification {
 
 interface NotificationPanelProps {
   notifications: Notification[];
+  onClearAllNotifications?: () => Promise<boolean>;
 }
 
-export function NotificationPanel({ notifications }: NotificationPanelProps) {
+export function NotificationPanel({ notifications, onClearAllNotifications }: NotificationPanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'pending'>('all');
   const [filterMethod, setFilterMethod] = useState<'all' | 'sms' | 'email'>('all');
   const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
+  const [isClearingAll, setIsClearingAll] = useState(false);
 
-  // Filter notifications - FIXED
+  // Filter notifications
   const filteredNotifications = notifications.filter((notif) => {
     const matchesSearch = 
       notif.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,14 +58,12 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
     
     const matchesStatus = filterStatus === 'all' || notif.status === filterStatus;
     
-    // FIXED: Handle method filter properly - if no method is set, don't filter it out
     let matchesMethod = true;
     if (filterMethod === 'sms') {
       matchesMethod = notif.method === 'sms';
     } else if (filterMethod === 'email') {
       matchesMethod = notif.method === 'email';
     }
-    // if filterMethod === 'all', matchesMethod remains true
     
     return matchesSearch && matchesStatus && matchesMethod;
   });
@@ -65,22 +78,39 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
     setClearAllDialogOpen(true);
   };
 
-  const confirmClearAll = () => {
+  const confirmClearAll = async () => {
     if (notifications.length === 0) {
       toast.error('No notifications to clear');
       setClearAllDialogOpen(false);
       return;
     }
-    toast.success(`All ${notifications.length} notifications cleared successfully!`);
-    setClearAllDialogOpen(false);
+
+    if (!onClearAllNotifications) {
+      toast.error('Clear action is not configured.');
+      setClearAllDialogOpen(false);
+      return;
+    }
+
+    try {
+      setIsClearingAll(true);
+      const didClear = await onClearAllNotifications();
+      if (!didClear) return;
+
+      toast.success(`All ${notifications.length} notifications cleared successfully!`);
+      setClearAllDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to clear notifications');
+    } finally {
+      setIsClearingAll(false);
+    }
   };
 
   const getMethodIcon = (method?: string) => {
     if (method === 'sms') {
-      return <MessageSquare className="w-4 h-4 text-blue-600" />;
+      return <MessageSquare className="w-3.5 h-3.5 text-blue-600" />;
     }
     if (method === 'email') {
-      return <Mail className="w-4 h-4 text-green-600" />;
+      return <Mail className="w-3.5 h-3.5 text-green-600" />;
     }
     return null;
   };
@@ -145,109 +175,104 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex gap-2 mt-4">
-            <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="flex-1" disabled={isClearingAll}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={confirmClearAll}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmClearAll();
+              }}
+              disabled={isClearingAll}
               className="flex-1 bg-red-600 hover:bg-red-700"
             >
-              Clear All
+              {isClearingAll ? "Clearing..." : "Clear All"}
             </AlertDialogAction>
           </div>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* ==================== Main Notification Panel ==================== */}
-      <div className="space-y-6">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4 bg-gradient-to-br from-blue-50 to-transparent border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600">Total Notifications</p>
-                <p className="text-2xl font-bold text-blue-600">{notifications.length}</p>
-              </div>
-              <Bell className="w-6 h-6 text-blue-400" />
+      <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/70">
+        <div className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-[#0F2854]">Notification History</h3>
+              <p className="mt-1 text-xs text-[#4988C4]">Track all sent and pending notifications</p>
             </div>
-          </Card>
-
-          <Card className="p-4 bg-gradient-to-br from-green-50 to-transparent border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600">Sent</p>
-                <p className="text-2xl font-bold text-green-600">{sentCount}</p>
-              </div>
-              <CheckCheck className="w-6 h-6 text-green-400" />
-            </div>
-          </Card>
-
-          <Card className="p-4 bg-gradient-to-br from-yellow-50 to-transparent border-l-4 border-yellow-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
-              </div>
-              <Clock className="w-6 h-6 text-yellow-400" />
-            </div>
-          </Card>
-
-          <Card className="p-4 bg-gradient-to-br from-purple-50 to-transparent border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600">SMS / Email</p>
-                <p className="text-xl font-bold text-purple-600">{smsCount} / {emailCount}</p>
-              </div>
-              <div className="flex gap-1">
-                <MessageSquare className="w-5 h-5 text-blue-400" />
-                <Mail className="w-5 h-5 text-green-400" />
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Main Notification Panel */}
-        <Card className="p-6 bg-white/95 backdrop-blur-sm">
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-[#0F2854]">Notification History</h3>
-                <p className="text-xs text-[#4988C4] mt-1">Track all sent and pending notifications</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearAll}
-                disabled={notifications.length === 0}
-                className="text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Clear All
-              </Button>
-            </div>
-            <Separator />
+            <Button
+              variant="default"
+              onClick={handleClearAll}
+              disabled={notifications.length === 0 || isClearingAll}
+              className="h-11 px-5 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isClearingAll ? "Clearing..." : "Clear All"}
+            </Button>
           </div>
 
-          {/* Search and Filters */}
-          <div className="space-y-4 mb-6">
-            {/* Search Input */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            <Card className="gap-0 rounded-2xl border border-[#3B82F6] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+              <div className="flex min-h-[98px] items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Total Notifications</p>
+                  <p className="mt-2 text-4xl font-bold text-[#2563EB]">{notifications.length}</p>
+                </div>
+                <ReceiptText className="h-8 w-8 text-[#60A5FA]" />
+              </div>
+            </Card>
+            <Card className="gap-0 rounded-2xl border border-[#22C55E] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+              <div className="flex min-h-[98px] items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Sent</p>
+                  <p className="mt-2 text-4xl font-bold text-[#16A34A]">{sentCount}</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-[#22C55E]" />
+              </div>
+            </Card>
+            <Card className="gap-0 rounded-2xl border border-[#10B981] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+              <div className="flex min-h-[98px] items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Pending</p>
+                  <p className="mt-2 text-4xl font-bold text-[#059669]">{pendingCount}</p>
+                </div>
+                <ThumbsUp className="h-8 w-8 text-[#10B981]" />
+              </div>
+            </Card>
+            <Card className="gap-0 rounded-2xl border border-[#A855F7] bg-gradient-to-br from-[#E2E8F0] via-[#EDF2F7] to-[#F8FAFC] p-4 shadow-none">
+              <div className="flex min-h-[98px] items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Email / SMS</p>
+                  <p className="mt-2 text-4xl font-bold text-[#7C3AED]">{emailCount} / {smsCount}</p>
+                </div>
+                <div className="flex items-center gap-1 text-[#A855F7]">
+                  <Mail className="h-7 w-7" />
+                  <Smartphone className="h-6 w-6" />
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <Separator className="bg-slate-200" />
+
+          <div className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search by recipient or message..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="h-11 pl-10 text-sm border-[#AFC7E0] bg-white"
               />
             </div>
 
-            {/* Filter Buttons */}
             <div className="flex flex-wrap gap-2">
-              {/* Status Filter */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant={filterStatus === 'all' ? 'default' : 'outline'}
                   onClick={() => setFilterStatus('all')}
-                  className={filterStatus === 'all' ? 'bg-[#1C4D8D]' : ''}
+                  className={filterStatus === 'all' ? 'h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white' : 'h-8 text-xs border-gray-300'}
                 >
                   All Status
                 </Button>
@@ -255,7 +280,7 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
                   size="sm"
                   variant={filterStatus === 'sent' ? 'default' : 'outline'}
                   onClick={() => setFilterStatus('sent')}
-                  className={filterStatus === 'sent' ? 'bg-green-600 hover:bg-green-700' : ''}
+                  className={filterStatus === 'sent' ? 'h-8 text-xs bg-green-600 hover:bg-green-700 text-white' : 'h-8 text-xs border-gray-300'}
                 >
                   <CheckCheck className="w-3 h-3 mr-1" />
                   Sent
@@ -264,20 +289,19 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
                   size="sm"
                   variant={filterStatus === 'pending' ? 'default' : 'outline'}
                   onClick={() => setFilterStatus('pending')}
-                  className={filterStatus === 'pending' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+                  className={filterStatus === 'pending' ? 'h-8 text-xs bg-yellow-600 hover:bg-yellow-700 text-white' : 'h-8 text-xs border-gray-300'}
                 >
                   <Clock className="w-3 h-3 mr-1" />
                   Pending
                 </Button>
               </div>
 
-              {/* Method Filter */}
-              <div className="flex gap-2 ml-auto">
+              <div className="flex flex-wrap gap-2 md:ml-auto">
                 <Button
                   size="sm"
                   variant={filterMethod === 'all' ? 'default' : 'outline'}
                   onClick={() => setFilterMethod('all')}
-                  className={filterMethod === 'all' ? 'bg-[#1C4D8D]' : ''}
+                  className={filterMethod === 'all' ? 'h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white' : 'h-8 text-xs border-gray-300'}
                 >
                   All Methods
                 </Button>
@@ -285,7 +309,7 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
                   size="sm"
                   variant={filterMethod === 'sms' ? 'default' : 'outline'}
                   onClick={() => setFilterMethod('sms')}
-                  className={filterMethod === 'sms' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                  className={filterMethod === 'sms' ? 'h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white' : 'h-8 text-xs border-gray-300'}
                 >
                   <MessageSquare className="w-3 h-3 mr-1" />
                   SMS
@@ -294,7 +318,7 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
                   size="sm"
                   variant={filterMethod === 'email' ? 'default' : 'outline'}
                   onClick={() => setFilterMethod('email')}
-                  className={filterMethod === 'email' ? 'bg-green-600 hover:bg-green-700' : ''}
+                  className={filterMethod === 'email' ? 'h-8 text-xs bg-green-600 hover:bg-green-700 text-white' : 'h-8 text-xs border-gray-300'}
                 >
                   <Mail className="w-3 h-3 mr-1" />
                   Email
@@ -303,57 +327,48 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
             </div>
           </div>
 
-          <Separator className="mb-4" />
-
-          {/* Notifications List */}
-          <div className="space-y-3 max-h-[600px] overflow-y-auto">
-            {filteredNotifications.length === 0 ? (
-              <div className="text-center py-12">
-                <Bell className="w-12 h-12 text-[#BDE8F5] mx-auto mb-3" />
-                <p className="text-[#4988C4] font-medium">
-                  {notifications.length === 0 
-                    ? 'No notifications sent yet' 
-                    : 'No notifications match your filters'}
-                </p>
-                {notifications.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setFilterStatus('all');
-                      setFilterMethod('all');
-                    }}
-                    className="mt-4"
+          <div className="rounded-xl border border-[#BDE8F5] bg-white overflow-hidden">
+            <div className="max-h-[620px] overflow-y-auto divide-y divide-[#D7E9F7]">
+              {filteredNotifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <Bell className="w-10 h-10 text-[#BDE8F5] mx-auto mb-3" />
+                  <p className="text-sm text-[#4988C4] font-medium">
+                    {notifications.length === 0
+                      ? 'No notifications sent yet'
+                      : 'No notifications match your filters'}
+                  </p>
+                  {notifications.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setFilterStatus('all');
+                        setFilterMethod('all');
+                      }}
+                      className="mt-4"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                filteredNotifications.map((notification, index) => (
+                  <div
+                    key={notification.id}
+                    className={`p-4 ${index % 2 === 0 ? 'bg-white' : 'bg-[#F7FBFF]'}`}
                   >
-                    Clear Filters
-                  </Button>
-                )}
-              </div>
-            ) : (
-              filteredNotifications.map((notification, index) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 border border-[#BDE8F5] rounded-lg hover:shadow-md transition-shadow ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-[#F5FAFB]'
-                  }`}
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3 flex-1">
-                      {/* Recipient and Status */}
-                      <div className="flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-semibold text-[#0F2854]">
+                          <span className="text-sm font-semibold text-[#0F2854]">
                             {notification.recipient}
                           </span>
-                          
-                          {/* Status Badge */}
                           <Badge
                             className={
                               notification.status === 'sent'
-                                ? 'bg-green-500 hover:bg-green-600'
-                                : 'bg-yellow-500 hover:bg-yellow-600'
+                                ? 'bg-green-500 hover:bg-green-600 text-white text-[11px]'
+                                : 'bg-yellow-500 hover:bg-yellow-600 text-white text-[11px]'
                             }
                           >
                             {notification.status === 'sent' ? (
@@ -368,46 +383,34 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
                               </>
                             )}
                           </Badge>
-
-                          {/* Method Badge */}
                           {notification.method && (
-                            <Badge className={`${getMethodBadgeColor(notification.method)} flex items-center gap-1`}>
+                            <Badge className={`${getMethodBadgeColor(notification.method)} text-[11px] flex items-center gap-1`}>
                               {getMethodIcon(notification.method)}
                               {getMethodLabel(notification.method)}
                             </Badge>
                           )}
                         </div>
-                        
-                        {/* Timestamp */}
-                        <p className="text-xs text-[#4988C4]">
-                          {notification.timestamp}
-                        </p>
+                        <p className="text-xs text-[#5E88B5]">{notification.timestamp}</p>
                       </div>
                     </div>
+                    <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="text-xs text-[#0F2854] leading-relaxed break-words">
+                        {notification.message}
+                      </p>
+                    </div>
                   </div>
-
-                  {/* Message Content */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <p className="text-sm text-[#0F2854] leading-relaxed break-words">
-                      {notification.message}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
 
-          {/* Footer Stats */}
           {filteredNotifications.length > 0 && (
-            <>
-              <Separator className="my-4" />
-              <div className="text-center text-xs text-gray-500">
-                Showing {filteredNotifications.length} of {notifications.length} notifications
-              </div>
-            </>
+            <div className="text-center text-xs text-gray-500">
+              Showing {filteredNotifications.length} of {notifications.length} notifications
+            </div>
           )}
-        </Card>
-      </div>
+        </div>
+      </Card>
     </>
   );
 }

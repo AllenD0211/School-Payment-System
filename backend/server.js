@@ -12,6 +12,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const feeRoutes = require("./routes/feeRoutes");
 const parentRoutes = require("./routes/parentRoutes");
+const ensureAdminUser = require("./utils/ensureAdminUser");
 
 const PORT = process.env.PORT || 5000;
 
@@ -24,9 +25,6 @@ app.use("/api", emailRoutes);
 app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
-
-// Connect to DB
-connectDB();
 
 // Routes
 app.get("/", (req, res) => res.send("API running..."));
@@ -52,7 +50,18 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    await ensureAdminUser();
+
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

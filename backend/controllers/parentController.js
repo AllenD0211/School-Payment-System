@@ -2,6 +2,7 @@ const Parent = require("../models/parentModel");
 const Student = require("../models/studentModel");
 const Fee = require("../models/feeModel");
 const User = require("../models/userModel");
+const ParentLinkRequest = require("../models/parentLinkRequestModel");
 
 const fullName = (firstName, middleName, lastName) => {
   return [firstName, middleName, lastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
@@ -138,13 +139,23 @@ const getUnlinkedStudents = async (req, res) => {
   try {
     const search = String(req.query.q || "").trim().toLowerCase();
 
-    const allUnlinkedStudents = await Student.find({
-      $or: [{ connectedToParent: false }, { connectedToParent: { $exists: false } }]
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const [allUnlinkedStudents, pendingRequests] = await Promise.all([
+      Student.find({
+        $or: [{ connectedToParent: false }, { connectedToParent: { $exists: false } }]
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      ParentLinkRequest.find({ status: "pending" })
+        .select("studentUserId")
+        .lean()
+    ]);
+
+    const blockedStudentIds = new Set(
+      pendingRequests.map((request) => String(request.studentUserId))
+    );
 
     const filteredStudents = allUnlinkedStudents.filter((student) => {
+      if (blockedStudentIds.has(String(student.userId))) return false;
       if (!search) return true;
       const searchable = [
         student.studentId,
@@ -218,29 +229,54 @@ const addChildToParent = async (req, res) => {
     }
 
     if (student.connectedToParent || student.parentId) {
+      if (student.parentId && String(student.parentId) === String(parent._id)) {
+        return res.status(200).json({
+          success: true,
+          message: "Student is already linked to your account"
+        });
+      }
       return res.status(409).json({
         success: false,
         message: "Student is already linked to a parent"
       });
     }
 
-    const parentChildren = Array.isArray(parent.children) ? parent.children : [];
-    const alreadyAdded = parentChildren.some(
-      (childUserId) => String(childUserId) === String(student.userId)
-    );
+    const [existingPendingForPair, existingPendingForStudent] = await Promise.all([
+      ParentLinkRequest.findOne({
+        parentUserId: parent.userId,
+        studentUserId: student.userId,
+        status: "pending"
+      }).lean(),
+      ParentLinkRequest.findOne({
+        studentUserId: student.userId,
+        status: "pending"
+      }).lean()
+    ]);
 
-    if (!alreadyAdded) {
-      parent.children = [...parentChildren, student.userId];
-      await parent.save();
+    if (existingPendingForPair) {
+      return res.status(200).json({
+        success: true,
+        message: "Link request already pending student confirmation"
+      });
     }
 
-    student.parentId = parent._id;
-    student.connectedToParent = true;
-    await student.save();
+    if (existingPendingForStudent) {
+      return res.status(409).json({
+        success: false,
+        message: "A parent link request is already pending for this student"
+      });
+    }
+
+    await ParentLinkRequest.create({
+      parentId: parent._id,
+      parentUserId: parent.userId,
+      studentUserId: student.userId,
+      status: "pending"
+    });
 
     res.status(200).json({
       success: true,
-      message: "Child linked successfully"
+      message: "Link request sent. Waiting for student confirmation."
     });
   } catch (error) {
     console.error("Error adding child to parent:", error);

@@ -6,7 +6,7 @@ import ForgotPassword from "@/app/components/forgot-password";
 import ParentDashboard from "@/app/components/parent-dashboard";
 import StudentDashboard from "@/app/components/student-dashboard";
 import AdminDashboard from "@/app/components/AdminDashboard";
-import { StudentCredentialsPage } from "@/app/components/student-credentials-page";
+import { ProtectedRoute } from "@/app/components/protected-route";
 import { Toaster } from "@/app/components/ui/sonner";
 
 export default function App() {
@@ -28,9 +28,14 @@ export default function App() {
         <Route path="/parent" element={<ParentDashboard />} />
 
         {/* Admin */}
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/credentials" element={<StudentCredentialsPage />} />
-
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

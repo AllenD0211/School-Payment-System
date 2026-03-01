@@ -145,9 +145,57 @@ export default function AdminDashboard() {
   const [sentReceipts, setSentReceipts] = useState<ReceiptFeedback[]>([]);
   const [events, setEvents] = useState<SchoolEvent[]>([]);
 
+  const buildAuthHeaders = (includeJson = false): HeadersInit => {
+    const token = localStorage.getItem("token");
+    return {
+      ...(includeJson ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+  };
+
+  const handleAuthFailure = (status: number) => {
+    if (status !== 401 && status !== 403) return false;
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    toast.error("Session expired. Please login again.");
+    navigate("/login", { replace: true });
+    return true;
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
+
+  const loadStudentsSummary = async () => {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/admin/students`, {
+      headers: buildAuthHeaders()
+    });
+    if (!response.ok) {
+      if (handleAuthFailure(response.status)) return;
+      toast.error(data?.message || "Failed to load students");
+      return;
+    }
+
+    if (data?.success) {
+      setStudents(data.students || []);
+    } else {
+      toast.error(data?.message || "Failed to load students");
+    }
+  };
+
   const loadNotifications = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/notifications`);
-    if (!response.ok || !data?.success) {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/notifications`, {
+      headers: buildAuthHeaders()
+    });
+    if (!response.ok) {
+      if (handleAuthFailure(response.status)) return;
+      toast.error(data?.message || "Failed to load notifications");
+      return;
+    }
+    if (!data?.success) {
       toast.error(data?.message || "Failed to load notifications");
       return;
     }
@@ -157,8 +205,15 @@ export default function AdminDashboard() {
   };
 
   const loadReceipts = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts`);
-    if (!response.ok || !data?.success) {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts`, {
+      headers: buildAuthHeaders()
+    });
+    if (!response.ok) {
+      if (handleAuthFailure(response.status)) return;
+      toast.error(data?.message || "Failed to load receipts");
+      return;
+    }
+    if (!data?.success) {
       toast.error(data?.message || "Failed to load receipts");
       return;
     }
@@ -168,19 +223,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/admin/students`);
-        const data = await response.json();
-        if (data.success) {
-          setStudents(data.students || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch students:", error);
-      }
-    };
-
-    fetchStudents();
+    loadStudentsSummary();
   }, []);
 
   useEffect(() => {
@@ -197,8 +240,12 @@ export default function AdminDashboard() {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/events`);
+      const response = await fetch(`${API_BASE}/api/events`, {
+        headers: buildAuthHeaders()
+      });
       const data = await response.json();
+
+      if (handleAuthFailure(response.status)) return;
 
       if (response.ok && data.success) {
         const formatted = data.events.map((e: any) => {
@@ -222,11 +269,32 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleResendReceipt = (receiptId: string) => {
-    const receipt = sentReceipts.find((r) => r.id === receiptId);
-    if (receipt) {
-      toast.success(`Receipt resent to ${receipt.sentTo}`);
+  const handleResendReceipt = async (receiptId: string) => {
+    const target = sentReceipts.find((item) => item.id === receiptId);
+    if (!target) {
+      toast.error("Receipt not found");
+      return;
     }
+
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts/${receiptId}/resend`, {
+      method: "POST",
+      headers: buildAuthHeaders()
+    });
+
+    if (!response.ok || !data?.success) {
+      if (handleAuthFailure(response.status)) return;
+      toast.error(data?.message || "Failed to resend receipt");
+      return;
+    }
+
+    if (data?.receipt) {
+      const refreshed = mapReceiptToFeedback(data.receipt);
+      setSentReceipts((prev) =>
+        prev.map((item) => (item.id === refreshed.id ? refreshed : item))
+      );
+    }
+
+    toast.success(data?.message || `Receipt resent to ${target.sentTo}`);
   };
 
   const handleNotificationSent = (notification: Notification) => {
@@ -236,12 +304,44 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleClearAllNotifications = async () => {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/notifications`, {
+      method: "DELETE",
+      headers: buildAuthHeaders()
+    });
+
+    if (!response.ok || !data?.success) {
+      if (handleAuthFailure(response.status)) return false;
+      toast.error(data?.message || "Failed to clear notifications");
+      return false;
+    }
+
+    setNotifications([]);
+    return true;
+  };
+
+  const handleClearAllReceipts = async () => {
+    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts`, {
+      method: "DELETE",
+      headers: buildAuthHeaders()
+    });
+
+    if (!response.ok || !data?.success) {
+      if (handleAuthFailure(response.status)) return false;
+      toast.error(data?.message || "Failed to clear receipts");
+      return false;
+    }
+
+    setSentReceipts([]);
+    return true;
+  };
+
   const handleAddManualReceipt = async (
     receipt: Omit<ReceiptFeedback, "id" | "sentAt" | "status">,
   ) => {
     const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts/manual`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildAuthHeaders(true),
       body: JSON.stringify({
         receiptNumber: receipt.receiptNumber,
         studentName: receipt.studentName,
@@ -253,6 +353,7 @@ export default function AdminDashboard() {
     });
 
     if (!response.ok || !data?.success) {
+      if (handleAuthFailure(response.status)) return false;
       toast.error(data?.message || "Failed to add manual receipt");
       return false;
     }
@@ -271,9 +372,7 @@ export default function AdminDashboard() {
     try {
       const response = await fetch(`${API_BASE}/api/events`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: buildAuthHeaders(true),
         body: JSON.stringify({
           title: event.title,
           description: event.description,
@@ -283,6 +382,7 @@ export default function AdminDashboard() {
       });
 
       const data = await response.json();
+      if (handleAuthFailure(response.status)) return false;
       if (!response.ok || !data.success) {
         toast.error(data?.message || "Failed to add event");
         return false;
@@ -300,7 +400,7 @@ export default function AdminDashboard() {
     try {
       const response = await fetch(`${API_BASE}/api/events/${updatedEvent.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(true),
         body: JSON.stringify({
           title: updatedEvent.title,
           description: updatedEvent.description,
@@ -309,6 +409,7 @@ export default function AdminDashboard() {
         }),
       });
       const data = await response.json();
+      if (handleAuthFailure(response.status)) return false;
       if (!response.ok || !data.success) {
         toast.error(data?.message || "Failed to update event");
         return false;
@@ -326,8 +427,10 @@ export default function AdminDashboard() {
     try {
       const response = await fetch(`${API_BASE}/api/events/${id}`, {
         method: "DELETE",
+        headers: buildAuthHeaders()
       });
       const data = await response.json();
+      if (handleAuthFailure(response.status)) return false;
       if (!response.ok || !data.success) {
         toast.error(data?.message || "Failed to delete event");
         return false;
@@ -382,14 +485,7 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-              onClick={() => navigate("/admin/credentials")}
-            >
-              Student Credentials
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-              onClick={() => navigate("/login")}
+              onClick={handleLogout}
             >
               Logout
             </Button>
@@ -487,7 +583,10 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="students">
-            <StudentTable onNotificationSent={handleNotificationSent} />
+            <StudentTable
+              onNotificationSent={handleNotificationSent}
+              onStudentDeleted={loadStudentsSummary}
+            />
           </TabsContent>
 
           <TabsContent value="analytics">
@@ -497,7 +596,10 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="notifications">
-            <NotificationPanel notifications={notifications} />
+            <NotificationPanel
+              notifications={notifications}
+              onClearAllNotifications={handleClearAllNotifications}
+            />
           </TabsContent>
 
           <TabsContent value="receipts">
@@ -505,6 +607,7 @@ export default function AdminDashboard() {
               <ReceiptFeedbackPanel
                 receipts={sentReceipts}
                 onResendReceipt={handleResendReceipt}
+                onClearAllReceipts={handleClearAllReceipts}
                 onAddManualReceipt={handleAddManualReceipt}
               />
             </Card>

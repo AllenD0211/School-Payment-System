@@ -5,8 +5,17 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/app/components/ui/dialog";
-import { Mail, Smartphone, CheckCircle2, Clock, MessageSquare, ThumbsUp, Plus, ReceiptIcon, TrendingUp, AlertCircle, Copy, Eye } from "lucide-react";
+import { Mail, Smartphone, CheckCircle2, Clock, MessageSquare, ThumbsUp, Plus, ReceiptIcon, TrendingUp, AlertCircle, Copy, Eye, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -27,16 +36,24 @@ export interface ReceiptFeedback {
 interface ReceiptFeedbackPanelProps {
   receipts: ReceiptFeedback[];
   onResendReceipt: (receiptId: string) => void | Promise<void>;
+  onClearAllReceipts?: () => Promise<boolean>;
   onAddManualReceipt: (
     receipt: Omit<ReceiptFeedback, 'id' | 'sentAt' | 'status'>,
   ) => boolean | Promise<boolean>;
 }
 
-export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualReceipt }: ReceiptFeedbackPanelProps) {
+export function ReceiptFeedbackPanel({
+  receipts,
+  onResendReceipt,
+  onClearAllReceipts,
+  onAddManualReceipt,
+}: ReceiptFeedbackPanelProps) {
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [adminNote, setAdminNote] = useState('');
   const [isManualReceiptDialogOpen, setIsManualReceiptDialogOpen] = useState(false);
   const [isSubmittingManualReceipt, setIsSubmittingManualReceipt] = useState(false);
+  const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
+  const [isClearingAll, setIsClearingAll] = useState(false);
   const [manualReceiptForm, setManualReceiptForm] = useState({
     receiptNumber: `RCP-${Date.now().toString().slice(-8)}`,
     studentName: '',
@@ -58,32 +75,62 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
   };
 
   const handleAddManualReceipt = async () => {
-    if (!manualReceiptForm.receiptNumber || !manualReceiptForm.studentName || !manualReceiptForm.amount || !manualReceiptForm.sentTo) {
+    const receiptNumber = manualReceiptForm.receiptNumber.trim();
+    const studentName = manualReceiptForm.studentName.trim();
+    const sentVia = manualReceiptForm.sentVia;
+    const sentTo = manualReceiptForm.sentTo.trim();
+    const amount = Number(manualReceiptForm.amount);
+    const paymentDescription = manualReceiptForm.paymentDescription.trim();
+
+    if (!receiptNumber || !studentName || !manualReceiptForm.amount || !sentTo) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    if (!manualReceiptForm.paymentDescription.trim()) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    if (!paymentDescription) {
       toast.error('Please enter a payment description');
       return;
+    }
+
+    if (sentVia === "email") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(sentTo)) {
+        toast.error("Please enter a valid parent email address");
+        return;
+      }
+    } else {
+      const phoneRegex = /^\+?[0-9()\-\s]{7,20}$/;
+      if (!phoneRegex.test(sentTo)) {
+        toast.error("Please enter a valid phone number");
+        return;
+      }
     }
 
     try {
       setIsSubmittingManualReceipt(true);
       const didCreate = await onAddManualReceipt({
-        receiptNumber: manualReceiptForm.receiptNumber,
-        studentName: manualReceiptForm.studentName,
-        amount: parseFloat(manualReceiptForm.amount),
-        sentVia: manualReceiptForm.sentVia,
-        sentTo: manualReceiptForm.sentTo,
-        paymentDescription: manualReceiptForm.paymentDescription,
+        receiptNumber,
+        studentName,
+        amount,
+        sentVia,
+        sentTo,
+        paymentDescription,
       });
 
       if (!didCreate) return;
 
       resetManualForm();
       setIsManualReceiptDialogOpen(false);
-      toast.success('Manual receipt added successfully');
+      toast.success(
+        sentVia === "email"
+          ? "Manual receipt sent successfully to parent email"
+          : "Manual receipt added successfully"
+      );
     } catch (error: any) {
       toast.error(error?.message || 'Failed to add manual receipt');
     } finally {
@@ -121,16 +168,103 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
     toast.success('Receipt number copied to clipboard!');
   };
 
+  const handleClearAll = () => {
+    setClearAllDialogOpen(true);
+  };
+
+  const confirmClearAll = async () => {
+    if (receipts.length === 0) {
+      toast.error("No receipts to clear");
+      setClearAllDialogOpen(false);
+      return;
+    }
+
+    if (!onClearAllReceipts) {
+      toast.error("Clear action is not configured.");
+      setClearAllDialogOpen(false);
+      return;
+    }
+
+    try {
+      setIsClearingAll(true);
+      const didClear = await onClearAllReceipts();
+      if (!didClear) return;
+
+      toast.success(`All ${receipts.length} receipts cleared successfully!`);
+      setClearAllDialogOpen(false);
+      setSelectedReceipt(null);
+      setAdminNote("");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to clear receipts");
+    } finally {
+      setIsClearingAll(false);
+    }
+  };
+
   // Calculate statistics
   const totalAmount = receipts.reduce((sum, r) => sum + r.amount, 0);
   const emailCount = receipts.filter(r => r.sentVia === 'email').length;
   const smsCount = receipts.filter(r => r.sentVia === 'sms').length;
+  const sentCount = receipts.filter(r => r.status === 'sent').length;
+  const pendingCount = receipts.filter(r => r.status === 'pending').length;
   const acknowledgedCount = receipts.filter(r => r.status === 'acknowledged').length;
 
   const selectedReceiptData = receipts.find(r => r.id === selectedReceipt);
 
   return (
-    <div className="space-y-6">
+    <>
+      <AlertDialog open={clearAllDialogOpen} onOpenChange={setClearAllDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              Clear All Receipts
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-2">
+              <div className="space-y-3">
+                <p>
+                  Are you sure you want to clear{" "}
+                  <span className="font-semibold text-red-600">{receipts.length} receipts</span>?
+                </p>
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200 space-y-2">
+                  <p className="text-sm">
+                    <span className="font-semibold">Sent:</span> {sentCount}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">Pending:</span> {pendingCount}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">Acknowledged:</span> {acknowledgedCount}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">Email / SMS:</span> {emailCount} / {smsCount}
+                  </p>
+                </div>
+                <p className="text-sm text-red-600 font-semibold">
+                  ⚠️ This action cannot be undone.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-2 mt-4">
+            <AlertDialogCancel className="flex-1" disabled={isClearingAll}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmClearAll();
+              }}
+              disabled={isClearingAll}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              {isClearingAll ? "Clearing..." : "Clear All"}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="space-y-6">
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4 bg-gradient-to-br from-blue-50 to-transparent border-l-4 border-blue-500">
@@ -187,14 +321,24 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                 <h3 className="text-xl font-bold text-[#0F2854]">Sent Payment Receipts</h3>
                 <p className="text-xs text-[#4988C4] mt-1">Track and manage all sent receipts</p>
               </div>
-              <Dialog open={isManualReceiptDialogOpen} onOpenChange={setIsManualReceiptDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={resetManualForm} className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Manual Receipt
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  onClick={handleClearAll}
+                  disabled={receipts.length === 0 || isClearingAll}
+                  className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isClearingAll ? "Clearing..." : "Clear All"}
+                </Button>
+                <Dialog open={isManualReceiptDialogOpen} onOpenChange={setIsManualReceiptDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={resetManualForm} className="bg-gradient-to-r from-[#1C4D8D] to-[#4988C4] hover:from-[#0F2854] hover:to-[#1C4D8D]">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Manual Receipt
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <ReceiptIcon className="w-5 h-5 text-[#1C4D8D]" />
@@ -305,8 +449,9 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
                       Cancel
                     </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
             <Separator className="mb-4" />
 
@@ -528,6 +673,7 @@ export function ReceiptFeedbackPanel({ receipts, onResendReceipt, onAddManualRec
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -18,7 +18,7 @@ const stripHtml = (html) =>
 
 const sendMail = async (to, subject, content, options = {}) => {
   const htmlEnabled = options?.html === true;
-  const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const fromAddress = `School Payment System <${process.env.EMAIL_USER}>`;
   const normalizedContent = String(content || "");
   const textContent = String(
     options?.text ||
@@ -27,6 +27,7 @@ const sendMail = async (to, subject, content, options = {}) => {
 
   const payload = {
     from: fromAddress,
+    replyTo: process.env.EMAIL_USER,
     to,
     subject,
     text: textContent,
@@ -36,7 +37,7 @@ const sendMail = async (to, subject, content, options = {}) => {
     payload.html = normalizedContent;
   }
 
-  await transporter.sendMail(payload);
+  return transporter.sendMail(payload);
 };
 
 module.exports = sendMail;

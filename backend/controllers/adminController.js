@@ -3,6 +3,8 @@ const Parent = require("../models/parentModel");
 const Student = require("../models/studentModel");
 const Fee = require("../models/feeModel");
 const Notification = require("../models/notificationModel");
+const Receipt = require("../models/receiptModel");
+const ParentLinkRequest = require("../models/parentLinkRequestModel");
 const sendMail = require("../utils/mailer");
 
 const buildParentLookup = (parents) => {
@@ -19,6 +21,13 @@ const buildParentLookup = (parents) => {
 
 const fullName = (firstName, middleName, lastName) => {
   return [firstName, middleName, lastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+};
+
+const inferParentConnection = (gender) => {
+  const normalized = String(gender || "").trim().toLowerCase();
+  if (normalized === "male") return "Father";
+  if (normalized === "female") return "Mother";
+  return "Parent/Guardian";
 };
 
 const feeSummaryFromAgg = (aggregateItem) => {
@@ -183,6 +192,11 @@ const getStudentDetails = async (req, res) => {
         ? {
             parent_id: parent._id,
             parent_user_id: parent.userId,
+            first_name: parent.firstName || "",
+            middle_name: parent.middleName || "",
+            last_name: parent.lastName || "",
+            gender: parent.gender || "",
+            connection: inferParentConnection(parent.gender),
             father_name: parent.firstName || "",
             mother_name: parent.middleName || "",
             contact_number: parent.phoneNumber || "",
@@ -384,11 +398,64 @@ const notifyParent = async (req, res) => {
   }
 };
 
+const deleteStudentAccount = async (req, res) => {
+  try {
+    const studentUserId = String(req.params.studentUserId || "").trim();
+    if (!studentUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "studentUserId is required"
+      });
+    }
+
+    const student = await Student.findOne({ userId: studentUserId });
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found"
+      });
+    }
+
+    const userId = student.userId;
+    const studentRecordId = student._id;
+
+    await Promise.all([
+      Parent.updateMany(
+        { children: userId },
+        {
+          $pull: {
+            children: userId
+          }
+        }
+      ),
+      ParentLinkRequest.deleteMany({ studentUserId: userId }),
+      Fee.deleteMany({ studentId: userId }),
+      Notification.deleteMany({ studentId: studentRecordId }),
+      Receipt.deleteMany({ studentUserId: userId })
+    ]);
+
+    await Student.deleteOne({ _id: studentRecordId });
+    await User.deleteOne({ _id: userId });
+
+    return res.status(200).json({
+      success: true,
+      message: "Student account deleted successfully"
+    });
+  } catch (error) {
+    console.error("Error deleting student account:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
 module.exports = {
   getTotalStudents,
   getAllStudents,
   getStudentDetails,
   getAllParents,
   linkStudentToParent,
-  notifyParent
+  notifyParent,
+  deleteStudentAccount
 };
