@@ -39,8 +39,8 @@ import {
   EyeOff,
 } from "lucide-react";
 import jsPDF from "jspdf";
+import { apiUrl } from "@/lib/api";
 
-const API_BASE = "http://localhost:5000";
 const EVENT_SYNC_STORAGE_KEY = "events_last_updated_at";
 const EVENT_SYNC_WINDOW_EVENT = "events-updated";
 
@@ -512,7 +512,7 @@ export default function ParentDashboard() {
     try {
       setIsSearching(true);
       const { response, data } = await fetchJsonSafe(
-        `${API_BASE}/api/parents/unlinked-students?q=${encodeURIComponent(query.trim())}`,
+        apiUrl(`/api/parents/unlinked-students?q=${encodeURIComponent(query.trim())}`),
       );
       if (!response.ok || !data?.success) {
         throw new Error(data?.message || "Failed to search unlinked students");
@@ -535,7 +535,7 @@ export default function ParentDashboard() {
   };
 
   const loadEvents = useCallback(async () => {
-    const eventsResult = await fetchJsonSafe(`${API_BASE}/api/events`);
+    const eventsResult = await fetchJsonSafe(apiUrl("/api/events"));
     if (eventsResult.response.ok && eventsResult.data?.success) {
       const rows = Array.isArray(eventsResult.data.events)
         ? eventsResult.data.events
@@ -551,8 +551,8 @@ export default function ParentDashboard() {
       setIsLoading(true);
 
       const [parentResult, eventsResult] = await Promise.all([
-        fetchJsonSafe(`${API_BASE}/api/parents/${resolvedParentUserId}/children`),
-        fetchJsonSafe(`${API_BASE}/api/events`),
+        fetchJsonSafe(apiUrl(`/api/parents/${resolvedParentUserId}/children`)),
+        fetchJsonSafe(apiUrl("/api/events")),
       ]);
 
       const sessionEmail = toStringValue(parseSessionUser(localStorage.getItem("user"))?.email);
@@ -581,7 +581,7 @@ export default function ParentDashboard() {
         childrenRows.map(async (child: any) => {
           const childUserId = toStringValue(child.userId);
           const feeResult = await fetchJsonSafe(
-            `${API_BASE}/api/fees/student/${childUserId}`,
+            apiUrl(`/api/fees/student/${childUserId}`),
           );
           const feeRows = Array.isArray(feeResult.data?.fees)
             ? feeResult.data.fees
@@ -806,7 +806,7 @@ export default function ParentDashboard() {
     if (!parentUserId) return;
     try {
       const { response, data } = await fetchJsonSafe(
-        `${API_BASE}/api/parents/${parentUserId}/children`,
+        apiUrl(`/api/parents/${parentUserId}/children`),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

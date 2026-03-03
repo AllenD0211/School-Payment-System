@@ -39,6 +39,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiUrl } from "@/lib/api";
 
 type StudentListItem = {
   student_doc_id: string;
@@ -282,7 +283,7 @@ export function StudentTable({
   const loadStudents = async () => {
     try {
       setIsLoadingStudents(true);
-      const { response, data } = await fetchJsonSafe("http://localhost:5000/api/students");
+      const { response, data } = await fetchJsonSafe(apiUrl("/api/students"));
       if (!response.ok) {
         throw new Error(data?.message || "Failed to load students");
       }
@@ -326,7 +327,7 @@ export function StudentTable({
 
       try {
         const { response, data } = await fetchJsonSafe(
-          `http://localhost:5000/api/students/${studentUserId}`,
+          apiUrl(`/api/students/${studentUserId}`),
         );
 
         if (response.ok && data?.student) {
@@ -349,7 +350,7 @@ export function StudentTable({
 
       try {
         const { response, data } = await fetchJsonSafe(
-          `http://localhost:5000/api/admin/students/${studentUserId}`,
+          apiUrl(`/api/admin/students/${studentUserId}`),
           {
             headers: getAuthHeaders(),
           },
@@ -414,7 +415,7 @@ export function StudentTable({
       let feeRows: FeeRecord[] = [];
       try {
         const { response, data } = await fetchJsonSafe(
-          `http://localhost:5000/api/fees/student/${studentUserId}`,
+          apiUrl(`/api/fees/student/${studentUserId}`),
         );
         if (response.ok) {
           const rows = Array.isArray(data?.fees) ? data.fees : [];
@@ -439,7 +440,7 @@ export function StudentTable({
   const refreshFeeTableOnly = async (studentUserId: string) => {
     try {
       const { response, data } = await fetchJsonSafe(
-        `http://localhost:5000/api/fees/student/${studentUserId}`,
+        apiUrl(`/api/fees/student/${studentUserId}`),
       );
 
       if (!response.ok || !data.success) {
@@ -539,7 +540,7 @@ export function StudentTable({
 
     try {
       setIsSavingFee(true);
-      const { response, data } = await fetchJsonSafe("http://localhost:5000/api/fees", {
+      const { response, data } = await fetchJsonSafe(apiUrl("/api/fees"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -576,7 +577,7 @@ export function StudentTable({
     }
 
     try {
-      const { response, data } = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}`, {
+      const { response, data } = await fetchJsonSafe(apiUrl(`/api/fees/${feeId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -598,7 +599,7 @@ export function StudentTable({
       // Legacy fallback for servers that do not expose PUT /api/fees/:id:
       // create a replacement row then delete the old row.
       if (response.status === 404) {
-        const createFallback = await fetchJsonSafe("http://localhost:5000/api/fees", {
+        const createFallback = await fetchJsonSafe(apiUrl("/api/fees"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -614,7 +615,7 @@ export function StudentTable({
           throw new Error(createFallback.data?.message || "Failed to update fee");
         }
 
-        const deleteOld = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeId}`, {
+        const deleteOld = await fetchJsonSafe(apiUrl(`/api/fees/${feeId}`), {
           method: "DELETE",
         });
         if (!deleteOld.response.ok || !deleteOld.data?.success) {
@@ -644,12 +645,12 @@ export function StudentTable({
 
     try {
       setIsDeletingFee(true);
-      let { response, data } = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeToDelete.fee_id}`, {
+      let { response, data } = await fetchJsonSafe(apiUrl(`/api/fees/${feeToDelete.fee_id}`), {
         method: "DELETE",
       });
 
       if (response.status === 404) {
-        const fallback = await fetchJsonSafe(`http://localhost:5000/api/fees/${feeToDelete.fee_id}/delete`, {
+        const fallback = await fetchJsonSafe(apiUrl(`/api/fees/${feeToDelete.fee_id}/delete`), {
           method: "POST",
         });
         response = fallback.response;
@@ -715,7 +716,7 @@ export function StudentTable({
     try {
       setIsSendingNotification(true);
       const { response, data } = await fetchJsonSafe(
-        `http://localhost:5000/api/admin/students/${detail.student.student_user_id}/notify`,
+        apiUrl(`/api/admin/students/${detail.student.student_user_id}/notify`),
         {
           method: "POST",
           headers: {
@@ -758,7 +759,7 @@ export function StudentTable({
     try {
       setIsDeletingStudent(true);
       let { response, data } = await fetchJsonSafe(
-        `http://localhost:5000/api/admin/students/${studentUserId}`,
+        apiUrl(`/api/admin/students/${studentUserId}`),
         {
           method: "DELETE",
           headers: getAuthHeaders(),
@@ -767,7 +768,7 @@ export function StudentTable({
 
       if (response.status === 404) {
         const fallback = await fetchJsonSafe(
-          `http://localhost:5000/api/admin/students/${studentUserId}/delete`,
+          apiUrl(`/api/admin/students/${studentUserId}/delete`),
           {
             method: "POST",
             headers: getAuthHeaders(),

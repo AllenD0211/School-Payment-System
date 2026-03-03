@@ -6,6 +6,7 @@ const Notification = require("../models/notificationModel");
 const Receipt = require("../models/receiptModel");
 const ParentLinkRequest = require("../models/parentLinkRequestModel");
 const sendMail = require("../utils/mailer");
+const { sendSms, toSmsErrorMessage } = require("../utils/sms");
 
 const buildParentLookup = (parents) => {
   const childToParent = new Map();
@@ -359,14 +360,37 @@ const notifyParent = async (req, res) => {
         });
       }
       recipient = parentUser.email;
+    } else if (!recipient) {
+      return res.status(400).json({
+        success: false,
+        message: "Parent phone number is not available"
+      });
     }
 
     const message =
       customMessage ||
       `Reminder for ${fullName(student.firstName, student.middleName, student.lastName)} (${student.studentId}) regarding student fee records.`;
 
+    let deliveryInfo = null;
     if (method === "email") {
-      await sendMail(recipient, "Student Fee Notification", message);
+      try {
+        await sendMail(recipient, "Student Fee Notification", message);
+      } catch (mailError) {
+        return res.status(502).json({
+          success: false,
+          message: `Failed to send email notification: ${String(mailError?.message || mailError || "SMTP error").trim()}`
+        });
+      }
+    } else {
+      try {
+        deliveryInfo = await sendSms(recipient, message);
+        recipient = deliveryInfo?.to || recipient;
+      } catch (smsError) {
+        return res.status(502).json({
+          success: false,
+          message: `Failed to send SMS notification: ${toSmsErrorMessage(smsError)}`
+        });
+      }
     }
 
     const notification = await Notification.create({
@@ -386,7 +410,8 @@ const notifyParent = async (req, res) => {
         method,
         message,
         status: "sent",
-        timestamp: notification.createdAt
+        timestamp: notification.createdAt,
+        delivery: method === "sms" ? deliveryInfo : null
       }
     });
   } catch (error) {

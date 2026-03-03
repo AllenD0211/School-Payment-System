@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/app/components/ui/select";
 import { GraduationCap, Users, BookOpen, Eye, EyeOff } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 type UserType = "student" | "parent";
 
@@ -49,9 +50,6 @@ const INITIAL_FORM: FormState = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-const API_BASE = String(
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000",
-).replace(/\/+$/, "");
 
 export default function CreateAccountPage() {
   const navigate = useNavigate();
@@ -185,7 +183,7 @@ export default function CreateAccountPage() {
           };
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/register`, {
+      const response = await fetch(apiUrl("/api/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -238,7 +236,7 @@ export default function CreateAccountPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/verify-registration-otp`, {
+      const response = await fetch(apiUrl("/api/auth/verify-registration-otp"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: verificationEmail, code: otpCode }),
@@ -266,7 +264,7 @@ export default function CreateAccountPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/resend-verification-otp`, {
+      const response = await fetch(apiUrl("/api/auth/resend-verification-otp"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: verificationEmail }),

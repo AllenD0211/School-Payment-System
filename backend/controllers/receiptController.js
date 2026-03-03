@@ -3,6 +3,7 @@ const User = require("../models/userModel");
 const Student = require("../models/studentModel");
 const mongoose = require("mongoose");
 const sendMail = require("../utils/mailer");
+const { sendSms, toSmsErrorMessage } = require("../utils/sms");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
@@ -101,6 +102,23 @@ const sendReceiptEmail = async (receipt) => {
 
   const delivery = await sendMail(receipt.sentTo, subject, html, { html: true, text });
   return delivery;
+};
+
+const buildReceiptSmsText = (receipt) => {
+  const sentAtText = new Date(receipt.paymentDate).toLocaleString("en-PH");
+  return [
+    "School Payment Receipt",
+    `Receipt: ${receipt.receiptNumber}`,
+    `Student: ${receipt.studentName}`,
+    `Amount: PHP ${formatCurrencyPhp(receipt.amount)}`,
+    `For: ${receipt.paymentDescription}`,
+    `Date: ${sentAtText}`
+  ].join("\n");
+};
+
+const sendReceiptSms = async (receipt) => {
+  const message = buildReceiptSmsText(receipt);
+  return sendSms(receipt.sentTo, message);
 };
 
 const normalizeRecipientList = (list) =>
@@ -444,13 +462,25 @@ const createManualReceipt = async (req, res) => {
           message: `Failed to send email receipt: ${toMailErrorMessage(mailError)}`
         });
       }
+    } else if (created.receipt.sentVia === "sms") {
+      try {
+        deliveryInfo = await sendReceiptSms(created.receipt);
+      } catch (smsError) {
+        await Receipt.findByIdAndDelete(created.receipt._id);
+        return res.status(502).json({
+          success: false,
+          message: `Failed to send SMS receipt: ${toSmsErrorMessage(smsError)}`
+        });
+      }
     }
 
     return res.status(201).json({
       success: true,
       message: created.receipt.sentVia === "email"
         ? "Manual receipt sent successfully via email"
-        : "Manual receipt added successfully",
+        : created.receipt.sentVia === "sms"
+          ? "Manual receipt sent successfully via SMS"
+          : "Manual receipt added successfully",
       receipt: serializeReceipt(created.receipt),
       delivery: deliveryInfo
     });
@@ -530,33 +560,45 @@ const resendReceipt = async (req, res) => {
       });
     }
 
-    if (receipt.sentVia !== "email") {
+    let deliveryInfo = null;
+    if (receipt.sentVia === "email") {
+      try {
+        const delivery = await sendReceiptEmail(receipt);
+        const expectedRecipient = toStringValue(receipt.sentTo).toLowerCase();
+        deliveryInfo = validateEmailDelivery(delivery, expectedRecipient);
+      } catch (mailError) {
+        return res.status(502).json({
+          success: false,
+          message: `Failed to resend email receipt: ${toMailErrorMessage(mailError)}`
+        });
+      }
+    } else if (receipt.sentVia === "sms") {
+      try {
+        deliveryInfo = await sendReceiptSms(receipt);
+      } catch (smsError) {
+        return res.status(502).json({
+          success: false,
+          message: `Failed to resend SMS receipt: ${toSmsErrorMessage(smsError)}`
+        });
+      }
+    } else {
       return res.status(400).json({
         success: false,
-        message: "Resend currently supports email receipts only"
+        message: "Unsupported receipt delivery channel"
       });
     }
 
-    try {
-      const delivery = await sendReceiptEmail(receipt);
-      const expectedRecipient = toStringValue(receipt.sentTo).toLowerCase();
-      const deliveryInfo = validateEmailDelivery(delivery, expectedRecipient);
+    receipt.status = "sent";
+    await receipt.save();
 
-      receipt.status = "sent";
-      await receipt.save();
-
-      return res.status(200).json({
-        success: true,
-        message: "Receipt resent successfully via email",
-        receipt: serializeReceipt(receipt),
-        delivery: deliveryInfo
-      });
-    } catch (mailError) {
-      return res.status(502).json({
-        success: false,
-        message: `Failed to resend email receipt: ${toMailErrorMessage(mailError)}`
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: receipt.sentVia === "email"
+        ? "Receipt resent successfully via email"
+        : "Receipt resent successfully via SMS",
+      receipt: serializeReceipt(receipt),
+      delivery: deliveryInfo
+    });
   } catch (error) {
     console.error("Resend receipt error:", error);
     return res.status(500).json({

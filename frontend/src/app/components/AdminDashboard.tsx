@@ -21,10 +21,10 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { GraduationCap, TrendingUp, AlertCircle, Bell } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 const EVENT_SYNC_STORAGE_KEY = "events_last_updated_at";
 const EVENT_SYNC_WINDOW_EVENT = "events-updated";
-const API_BASE = "http://localhost:5000";
 
 type DashboardStudent = {
   student_id: string;
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
   };
 
   const loadStudentsSummary = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/admin/students`, {
+    const { response, data } = await fetchJsonSafe(apiUrl("/api/admin/students"), {
       headers: buildAuthHeaders()
     });
     if (!response.ok) {
@@ -187,7 +187,7 @@ export default function AdminDashboard() {
   };
 
   const loadNotifications = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/notifications`, {
+    const { response, data } = await fetchJsonSafe(apiUrl("/api/notifications"), {
       headers: buildAuthHeaders()
     });
     if (!response.ok) {
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
   };
 
   const loadReceipts = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts`, {
+    const { response, data } = await fetchJsonSafe(apiUrl("/api/receipts"), {
       headers: buildAuthHeaders()
     });
     if (!response.ok) {
@@ -240,7 +240,7 @@ export default function AdminDashboard() {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/events`, {
+      const response = await fetch(apiUrl("/api/events"), {
         headers: buildAuthHeaders()
       });
       const data = await response.json();
@@ -276,7 +276,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts/${receiptId}/resend`, {
+    const { response, data } = await fetchJsonSafe(apiUrl(`/api/receipts/${receiptId}/resend`), {
       method: "POST",
       headers: buildAuthHeaders()
     });
@@ -305,7 +305,7 @@ export default function AdminDashboard() {
   };
 
   const handleClearAllNotifications = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/notifications`, {
+    const { response, data } = await fetchJsonSafe(apiUrl("/api/notifications"), {
       method: "DELETE",
       headers: buildAuthHeaders()
     });
@@ -321,7 +321,7 @@ export default function AdminDashboard() {
   };
 
   const handleClearAllReceipts = async () => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts`, {
+    const { response, data } = await fetchJsonSafe(apiUrl("/api/receipts"), {
       method: "DELETE",
       headers: buildAuthHeaders()
     });
@@ -339,7 +339,7 @@ export default function AdminDashboard() {
   const handleAddManualReceipt = async (
     receipt: Omit<ReceiptFeedback, "id" | "sentAt" | "status">,
   ) => {
-    const { response, data } = await fetchJsonSafe(`${API_BASE}/api/receipts/manual`, {
+    const { response, data } = await fetchJsonSafe(apiUrl("/api/receipts/manual"), {
       method: "POST",
       headers: buildAuthHeaders(true),
       body: JSON.stringify({
@@ -370,7 +370,7 @@ export default function AdminDashboard() {
 
   const handleAddEvent = async (event: Omit<SchoolEvent, "id">) => {
     try {
-      const response = await fetch(`${API_BASE}/api/events`, {
+      const response = await fetch(apiUrl("/api/events"), {
         method: "POST",
         headers: buildAuthHeaders(true),
         body: JSON.stringify({
@@ -398,7 +398,7 @@ export default function AdminDashboard() {
 
   const handleUpdateEvent = async (updatedEvent: SchoolEvent) => {
     try {
-      const response = await fetch(`${API_BASE}/api/events/${updatedEvent.id}`, {
+      const response = await fetch(apiUrl(`/api/events/${updatedEvent.id}`), {
         method: "PUT",
         headers: buildAuthHeaders(true),
         body: JSON.stringify({
@@ -425,7 +425,7 @@ export default function AdminDashboard() {
 
   const handleDeleteEvent = async (id: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/events/${id}`, {
+      const response = await fetch(apiUrl(`/api/events/${id}`), {
         method: "DELETE",
         headers: buildAuthHeaders()
       });

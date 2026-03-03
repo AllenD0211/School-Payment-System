@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import { TrendingUp, DollarSign, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { apiUrl } from "@/lib/api";
 
 type FeeStatus = "paid" | "pending" | "overdue";
 
@@ -61,7 +62,7 @@ export function FeeStats() {
     const loadFees = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("http://localhost:5000/api/fees");
+        const response = await fetch(apiUrl("/api/fees"));
         const data = await response.json();
         if (!response.ok || !data?.success) {
           throw new Error(data?.message || "Failed to load fee analytics");

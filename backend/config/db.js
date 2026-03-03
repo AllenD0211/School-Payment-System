@@ -1,29 +1,44 @@
 const mongoose = require("mongoose");
 
+let connectionPromise = null;
+
 const connectDB = async () => {
   const mongoURI = process.env.MONGO_URI;
   if (!mongoURI) {
-    console.error("❌ MONGO_URI not defined in .env");
-    process.exit(1);
+    throw new Error("MONGO_URI is not defined");
   }
 
-  try {
-    await mongoose.connect(mongoURI, {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (connectionPromise) {
+    await connectionPromise;
+    return mongoose.connection;
+  }
+
+  connectionPromise = mongoose
+    .connect(mongoURI, {
       dbName: "student_fee_system"
+    })
+    .then(() => {
+      console.log("✅ MongoDB connected successfully");
+      return mongoose.connection;
+    })
+    .catch((error) => {
+      connectionPromise = null;
+
+      if (error.name === "MongooseServerSelectionError") {
+        console.error(
+          "⚠️ Could not connect to any servers in the cluster. Check IP whitelist, replica set, and network."
+        );
+      }
+
+      throw error;
     });
 
-    console.log("✅ MongoDB connected successfully");
-  } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
-
-    if (error.name === "MongooseServerSelectionError") {
-      console.error(
-        "⚠️ Could not connect to any servers in the cluster. Check IP whitelist, replica set, and network."
-      );
-    }
-
-    process.exit(1);
-  }
+  await connectionPromise;
+  return mongoose.connection;
 };
 
 module.exports = connectDB;

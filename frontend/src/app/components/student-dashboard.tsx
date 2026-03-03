@@ -32,14 +32,10 @@ import {
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { apiUrl } from "@/lib/api";
 
 const EVENT_SYNC_STORAGE_KEY = "events_last_updated_at";
 const EVENT_SYNC_WINDOW_EVENT = "events-updated";
-const API_BASE = String(
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000",
-).replace(/\/+$/, "");
-
-const apiUrl = (path: string) => `${API_BASE}${path}`;
 
 interface StudentInfo {
   id: string;
