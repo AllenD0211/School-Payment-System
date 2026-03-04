@@ -6,7 +6,6 @@ const Notification = require("../models/notificationModel");
 const Receipt = require("../models/receiptModel");
 const ParentLinkRequest = require("../models/parentLinkRequestModel");
 const sendMail = require("../utils/mailer");
-const { sendSms, toSmsErrorMessage } = require("../utils/sms");
 
 const buildParentLookup = (parents) => {
   const childToParent = new Map();
@@ -324,10 +323,10 @@ const notifyParent = async (req, res) => {
     const method = String(req.body?.method || "").trim().toLowerCase();
     const customMessage = String(req.body?.message || "").trim();
 
-    if (!["sms", "email"].includes(method)) {
+    if (method && method !== "email") {
       return res.status(400).json({
         success: false,
-        message: "method must be sms or email"
+        message: "Only email notifications are supported"
       });
     }
 
@@ -349,54 +348,32 @@ const notifyParent = async (req, res) => {
       });
     }
 
-    let recipient = parent.phoneNumber;
-
-    if (method === "email") {
-      const parentUser = await User.findById(parent.userId).lean();
-      if (!parentUser?.email) {
-        return res.status(400).json({
-          success: false,
-          message: "Parent email is not available"
-        });
-      }
-      recipient = parentUser.email;
-    } else if (!recipient) {
+    const parentUser = await User.findById(parent.userId).lean();
+    if (!parentUser?.email) {
       return res.status(400).json({
         success: false,
-        message: "Parent phone number is not available"
+        message: "Parent email is not available"
       });
     }
+    const recipient = parentUser.email;
 
     const message =
       customMessage ||
       `Reminder for ${fullName(student.firstName, student.middleName, student.lastName)} (${student.studentId}) regarding student fee records.`;
 
-    let deliveryInfo = null;
-    if (method === "email") {
-      try {
-        await sendMail(recipient, "Student Fee Notification", message);
-      } catch (mailError) {
-        return res.status(502).json({
-          success: false,
-          message: `Failed to send email notification: ${String(mailError?.message || mailError || "SMTP error").trim()}`
-        });
-      }
-    } else {
-      try {
-        deliveryInfo = await sendSms(recipient, message);
-        recipient = deliveryInfo?.to || recipient;
-      } catch (smsError) {
-        return res.status(502).json({
-          success: false,
-          message: `Failed to send SMS notification: ${toSmsErrorMessage(smsError)}`
-        });
-      }
+    try {
+      await sendMail(recipient, "Student Fee Notification", message);
+    } catch (mailError) {
+      return res.status(502).json({
+        success: false,
+        message: `Failed to send email notification: ${String(mailError?.message || mailError || "SMTP error").trim()}`
+      });
     }
 
     const notification = await Notification.create({
       studentId: student._id,
       recipient,
-      method,
+      method: "email",
       message,
       status: "sent"
     });
@@ -407,11 +384,10 @@ const notifyParent = async (req, res) => {
       notification: {
         id: notification._id,
         recipient,
-        method,
+        method: "email",
         message,
         status: "sent",
-        timestamp: notification.createdAt,
-        delivery: method === "sms" ? deliveryInfo : null
+        timestamp: notification.createdAt
       }
     });
   } catch (error) {
@@ -475,6 +451,71 @@ const deleteStudentAccount = async (req, res) => {
   }
 };
 
+const deleteParentAccount = async (req, res) => {
+  try {
+    const parentLookupId = String(req.params.parentId || "").trim();
+    if (!parentLookupId) {
+      return res.status(400).json({
+        success: false,
+        message: "parentId is required"
+      });
+    }
+
+    const [parentById, parentByUserId] = await Promise.all([
+      Parent.findById(parentLookupId),
+      Parent.findOne({ userId: parentLookupId })
+    ]);
+    const parent = parentById || parentByUserId;
+
+    if (!parent) {
+      return res.status(404).json({
+        success: false,
+        message: "Parent not found"
+      });
+    }
+
+    const parentId = parent._id;
+    const parentUserId = parent.userId;
+    const linkedChildUserIds = Array.isArray(parent.children) ? parent.children : [];
+
+    await Promise.all([
+      Student.updateMany(
+        {
+          $or: [
+            { parentId },
+            { userId: { $in: linkedChildUserIds } }
+          ]
+        },
+        {
+          $set: {
+            parentId: null,
+            connectedToParent: false
+          }
+        }
+      ),
+      ParentLinkRequest.deleteMany({
+        $or: [
+          { parentId },
+          { parentUserId }
+        ]
+      }),
+      Parent.deleteOne({ _id: parentId }),
+      User.deleteOne({ _id: parentUserId })
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Parent account deleted successfully"
+    });
+  } catch (error) {
+    console.error("Error deleting parent account:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
 module.exports = {
   getTotalStudents,
   getAllStudents,
@@ -482,5 +523,6 @@ module.exports = {
   getAllParents,
   linkStudentToParent,
   notifyParent,
-  deleteStudentAccount
+  deleteStudentAccount,
+  deleteParentAccount
 };

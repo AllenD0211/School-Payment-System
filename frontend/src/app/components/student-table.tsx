@@ -114,7 +114,6 @@ type StudentTableProps = {
 };
 
 type NotifyForm = {
-  method: "sms" | "email";
   message: string;
 };
 
@@ -126,7 +125,6 @@ const EMPTY_FEE_FORM: FeeForm = {
 };
 
 const EMPTY_NOTIFY_FORM: NotifyForm = {
-  method: "sms",
   message: "",
 };
 
@@ -277,6 +275,8 @@ export function StudentTable({
   const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [notifyForm, setNotifyForm] = useState<NotifyForm>(EMPTY_NOTIFY_FORM);
+  const [deleteParentDialogOpen, setDeleteParentDialogOpen] = useState(false);
+  const [isDeletingParent, setIsDeletingParent] = useState(false);
   const [deleteStudentDialogOpen, setDeleteStudentDialogOpen] = useState(false);
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
 
@@ -502,6 +502,7 @@ export function StudentTable({
     setFeeForm(EMPTY_FEE_FORM);
     setDeleteFeeDialogOpen(false);
     setFeeToDelete(null);
+    setDeleteParentDialogOpen(false);
     setDeleteStudentDialogOpen(false);
     await loadStudentDetail(studentUserId);
   };
@@ -515,6 +516,7 @@ export function StudentTable({
     setFeeForm(EMPTY_FEE_FORM);
     setDeleteFeeDialogOpen(false);
     setFeeToDelete(null);
+    setDeleteParentDialogOpen(false);
     setDeleteStudentDialogOpen(false);
     setNotifyForm(EMPTY_NOTIFY_FORM);
   };
@@ -678,25 +680,13 @@ export function StudentTable({
       return;
     }
 
-    const hasSmsRecipient = Boolean(detail.parent.contact_number);
-    const hasEmailRecipient = Boolean(detail.parent.email);
-
-    let defaultMethod: NotifyForm["method"] = "sms";
-    if (!hasSmsRecipient && hasEmailRecipient) {
-      defaultMethod = "email";
-    }
-
     setNotifyForm({
-      method: defaultMethod,
       message: "",
     });
     setIsNotifyModalOpen(true);
   };
 
-  const notifyRecipient =
-    notifyForm.method === "email"
-      ? toStringValue(detail?.parent?.email)
-      : toStringValue(detail?.parent?.contact_number);
+  const notifyRecipient = toStringValue(detail?.parent?.email);
 
   const handleSendNotifyParent = async () => {
     if (!detail?.student?.student_user_id) return;
@@ -705,11 +695,7 @@ export function StudentTable({
       return;
     }
     if (!notifyRecipient) {
-      toast.error(
-        notifyForm.method === "email"
-          ? "Parent email is not available."
-          : "Parent phone number is not available.",
-      );
+      toast.error("Parent email is not available.");
       return;
     }
 
@@ -724,7 +710,6 @@ export function StudentTable({
             ...getAuthHeaders(),
           },
           body: JSON.stringify({
-            method: notifyForm.method,
             message: notifyForm.message.trim(),
           }),
         },
@@ -739,7 +724,7 @@ export function StudentTable({
         onNotificationSent(normalizedNotification);
       }
 
-      toast.success(`Parent notified via ${notifyForm.method.toUpperCase()}.`);
+      toast.success("Parent notified via EMAIL.");
       setIsNotifyModalOpen(false);
       setNotifyForm(EMPTY_NOTIFY_FORM);
     } catch (error: any) {
@@ -802,6 +787,84 @@ export function StudentTable({
     }
   };
 
+  const confirmDeleteParentAccount = async () => {
+    const parentId = toStringValue(detail?.parent?.parent_id);
+    const studentUserId = toStringValue(detail?.student?.student_user_id);
+    if (!parentId) {
+      toast.error("Parent account is missing.");
+      return;
+    }
+
+    try {
+      setIsDeletingParent(true);
+      let { response, data } = await fetchJsonSafe(
+        apiUrl(`/api/admin/parents/${parentId}`),
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      if (response.status === 404) {
+        const fallback = await fetchJsonSafe(
+          apiUrl(`/api/admin/parents/${parentId}/delete`),
+          {
+            method: "POST",
+            headers: getAuthHeaders(),
+          },
+        );
+        response = fallback.response;
+        data = fallback.data;
+      }
+
+      if (!response.ok || !data?.success) {
+        if (response.status === 404) {
+          throw new Error(
+            "Delete route not found. Please restart the backend server and try again.",
+          );
+        }
+        throw new Error(data?.message || "Failed to delete parent account");
+      }
+
+      toast.success(data?.message || "Parent account deleted successfully.");
+      setDeleteParentDialogOpen(false);
+      setIsNotifyModalOpen(false);
+      setNotifyForm(EMPTY_NOTIFY_FORM);
+
+      setDetail((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          student: {
+            ...prev.student,
+            parent_id: null,
+          },
+          parent: null,
+        };
+      });
+
+      if (studentUserId) {
+        setStudents((prev) =>
+          prev.map((student) =>
+            student.student_user_id === studentUserId
+              ? {
+                  ...student,
+                  parent_id: null,
+                  connected_to_parent: false,
+                }
+              : student,
+          ),
+        );
+      }
+
+      await loadStudents();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete parent account");
+    } finally {
+      setIsDeletingParent(false);
+    }
+  };
+
   if (selectedStudentUserId) {
     return (
       <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-[#BDE8F5]">
@@ -826,14 +889,24 @@ export function StudentTable({
               </h2>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setDeleteStudentDialogOpen(true)}
-            className="border-red-300 text-red-600 hover:text-red-700 hover:bg-red-50 self-start lg:self-auto"
-            disabled={isLoadingDetail || isDeletingStudent}
-          >
-            Delete Student Account
-          </Button>
+          <div className="flex flex-wrap gap-2 self-start lg:self-auto">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteParentDialogOpen(true)}
+              className="border-red-300 text-red-600 hover:text-red-700 hover:bg-red-50"
+              disabled={isLoadingDetail || isDeletingParent || !detail?.parent}
+            >
+              Delete Parent Account
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteStudentDialogOpen(true)}
+              className="border-red-300 text-red-600 hover:text-red-700 hover:bg-red-50"
+              disabled={isLoadingDetail || isDeletingStudent}
+            >
+              Delete Student Account
+            </Button>
+          </div>
 
         </div>
 
@@ -1158,6 +1231,71 @@ export function StudentTable({
             </AlertDialog>
 
             <AlertDialog
+              open={deleteParentDialogOpen}
+              onOpenChange={(open) => {
+                if (isDeletingParent && !open) return;
+                setDeleteParentDialogOpen(open);
+              }}
+            >
+              <AlertDialogContent className="max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    Delete Parent Account
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    <div className="space-y-3 mt-2">
+                      <p>
+                        Are you sure you want to permanently delete this parent account?
+                      </p>
+                      <div className="p-3 bg-red-50 rounded-lg border border-red-200 space-y-2 text-sm">
+                        <p>
+                          <span className="font-semibold">Parent:</span>{" "}
+                          {detail?.parent
+                            ? composeName(
+                                detail.parent.first_name,
+                                detail.parent.middle_name,
+                                detail.parent.last_name,
+                              ) || "Not Provided"
+                            : "Not Provided"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Contact:</span>{" "}
+                          {detail?.parent?.contact_number || "Not Provided"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Email:</span>{" "}
+                          {detail?.parent?.email || "Not Provided"}
+                        </p>
+                      </div>
+                      <p className="text-sm text-red-600 font-semibold">
+                        This will remove the parent login and unlink this parent from connected students.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex gap-2 mt-4">
+                  <AlertDialogCancel
+                    className="flex-1"
+                    disabled={isDeletingParent}
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void confirmDeleteParentAccount();
+                    }}
+                    disabled={isDeletingParent || !detail?.parent?.parent_id}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                  >
+                    {isDeletingParent ? "Deleting..." : "Delete Account"}
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
               open={deleteStudentDialogOpen}
               onOpenChange={(open) => {
                 if (isDeletingStudent && !open) return;
@@ -1306,7 +1444,7 @@ export function StudentTable({
                 <DialogHeader>
                   <DialogTitle className="text-[#0F2854]">Notify Parent</DialogTitle>
                   <DialogDescription>
-                    Send an SMS or email notification to the connected parent account.
+                    Send an email notification to the connected parent account.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -1326,26 +1464,7 @@ export function StudentTable({
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-[#0F2854]">
-                      Notification Method
-                    </label>
-                    <select
-                      value={notifyForm.method}
-                      onChange={(e) =>
-                        setNotifyForm((prev) => ({
-                          ...prev,
-                          method: e.target.value as NotifyForm["method"],
-                        }))
-                      }
-                      className="h-9 rounded-md border px-3 text-sm w-full"
-                    >
-                      <option value="sms">SMS</option>
-                      <option value="email">Email</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#0F2854]">
-                      Recipient
+                      Recipient (Email)
                     </label>
                     <Input value={notifyRecipient || "Not Available"} disabled />
                   </div>
