@@ -36,6 +36,10 @@ type DashboardStudent = {
   };
 };
 
+type StoredUser = {
+  userType?: string;
+};
+
 const toStringValue = (value: unknown) => {
   if (value === null || value === undefined) return "";
   return String(value).trim();
@@ -44,6 +48,17 @@ const toStringValue = (value: unknown) => {
 const toSafeNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseStoredUser = (raw: string | null): StoredUser | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as StoredUser;
+  } catch {
+    return null;
+  }
 };
 
 const normalizeStudentStatus = (value: unknown) => {
@@ -155,10 +170,24 @@ const fetchJsonSafe = async (url: string, init?: RequestInit) => {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [isVerifyingAdmin, setIsVerifyingAdmin] = useState(true);
+  const [isAdminVerified, setIsAdminVerified] = useState(false);
   const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [sentReceipts, setSentReceipts] = useState<ReceiptFeedback[]>([]);
   const [events, setEvents] = useState<SchoolEvent[]>([]);
+
+  const clearSession = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  };
+
+  const redirectToLogin = (message: string) => {
+    clearSession();
+    setIsAdminVerified(false);
+    toast.error(message);
+    navigate("/login", { replace: true });
+  };
 
   const buildAuthHeaders = (includeJson = false): HeadersInit => {
     const token = localStorage.getItem("token");
@@ -171,18 +200,65 @@ export default function AdminDashboard() {
   const handleAuthFailure = (status: number) => {
     if (status !== 401 && status !== 403) return false;
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    toast.error("Session expired. Please login again.");
-    navigate("/login", { replace: true });
+    redirectToLogin("Session expired. Please login again.");
     return true;
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearSession();
     navigate("/login", { replace: true });
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const verifyAdminAccess = async () => {
+      setIsVerifyingAdmin(true);
+
+      const token = localStorage.getItem("token");
+      const storedUser = parseStoredUser(localStorage.getItem("user"));
+      const userType = toStringValue(storedUser?.userType).toLowerCase();
+
+      if (!token) {
+        redirectToLogin("Please login first.");
+        if (isMounted) setIsVerifyingAdmin(false);
+        return;
+      }
+
+      if (userType && userType !== "admin") {
+        redirectToLogin("Admin account required.");
+        if (isMounted) setIsVerifyingAdmin(false);
+        return;
+      }
+
+      const { response, data } = await fetchJsonSafe(apiUrl("/api/admin/total-students"), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok || !data?.success) {
+        const message =
+          response.status === 401 || response.status === 403
+            ? "Admin login required. Please login first."
+            : "Unable to verify admin session. Please login again.";
+        redirectToLogin(message);
+        if (isMounted) setIsVerifyingAdmin(false);
+        return;
+      }
+
+      if (isMounted) {
+        setIsAdminVerified(true);
+        setIsVerifyingAdmin(false);
+      }
+    };
+
+    void verifyAdminAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   const loadStudentsSummary = async () => {
     const { response, data } = await fetchJsonSafe(apiUrl("/api/admin/students"), {
@@ -238,14 +314,16 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    if (!isAdminVerified) return;
     loadStudentsSummary();
-  }, []);
+  }, [isAdminVerified]);
 
   useEffect(() => {
+    if (!isAdminVerified) return;
     fetchEvents();
     loadNotifications();
     loadReceipts();
-  }, []);
+  }, [isAdminVerified]);
 
   const notifyEventSync = () => {
     const timestamp = String(Date.now());
@@ -473,6 +551,10 @@ export default function AdminDashboard() {
       Number(s.fee_summary?.overdueAmount || 0),
     0,
   );
+
+  if (isVerifyingAdmin || !isAdminVerified) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2854] via-[#1C4D8D] to-[#4988C4] p-6">
