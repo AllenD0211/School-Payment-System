@@ -8,12 +8,27 @@ const sendMail = require("../utils/mailer");
 const fullName = (firstName, middleName, lastName) =>
   [firstName, middleName, lastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 
+const STUDENT_STATUSES = new Set(["active", "inactive", "transferred", "graduated", "archived"]);
+const ACTIVE_STUDENT_QUERY = {
+  $or: [{ status: "active" }, { status: { $exists: false } }]
+};
+
+const normalizeStudentStatus = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return STUDENT_STATUSES.has(normalized) ? normalized : "active";
+};
+
 const getStudents = async (req, res) => {
   try {
-    const students = await Student.find().sort({ createdAt: -1 });
+    const students = await Student.find(ACTIVE_STUDENT_QUERY)
+      .sort({ createdAt: -1 })
+      .lean();
     res.status(200).json({
       success: true,
-      students
+      students: students.map((student) => ({
+        ...student,
+        status: normalizeStudentStatus(student.status)
+      }))
     });
   } catch (error) {
     console.error("Get students error:", error);
@@ -46,6 +61,7 @@ const getStudentByUserId = async (req, res) => {
         gradeSection: student.gradeSection,
         parentId: student.parentId,
         connectedToParent: student.connectedToParent,
+        status: normalizeStudentStatus(student.status),
         createdAt: student.createdAt,
         updatedAt: student.updatedAt,
         email: user?.email || ""
@@ -86,12 +102,32 @@ const updateStudent = async (req, res) => {
 
 const deleteStudent = async (req, res) => {
   try {
-    const student = await Student.findByIdAndDelete(req.params.id);
+    const student = await Student.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: "inactive",
+        statusUpdatedAt: new Date()
+      },
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    res.status(200).json({ success: true, message: "Student deleted" });
+    res.status(200).json({
+      success: true,
+      message: "Student deactivated",
+      student: {
+        _id: student._id,
+        userId: student.userId,
+        studentId: student.studentId,
+        status: normalizeStudentStatus(student.status)
+      }
+    });
   } catch (error) {
     console.error("Delete student error:", error);
     res.status(500).json({ success: false, message: "Server error" });

@@ -58,7 +58,6 @@ export function ReceiptFeedbackPanel({
     receiptNumber: `RCP-${Date.now().toString().slice(-8)}`,
     studentName: '',
     amount: '',
-    sentVia: 'email' as 'email' | 'sms',
     sentTo: '',
     paymentDescription: '', // New field
   });
@@ -68,7 +67,6 @@ export function ReceiptFeedbackPanel({
       receiptNumber: `RCP-${Date.now().toString().slice(-8)}`,
       studentName: '',
       amount: '',
-      sentVia: 'email',
       sentTo: '',
       paymentDescription: '',
     });
@@ -77,7 +75,7 @@ export function ReceiptFeedbackPanel({
   const handleAddManualReceipt = async () => {
     const receiptNumber = manualReceiptForm.receiptNumber.trim();
     const studentName = manualReceiptForm.studentName.trim();
-    const sentVia = manualReceiptForm.sentVia;
+    const sentVia: 'email' = 'email';
     const sentTo = manualReceiptForm.sentTo.trim();
     const amount = Number(manualReceiptForm.amount);
     const paymentDescription = manualReceiptForm.paymentDescription.trim();
@@ -97,18 +95,10 @@ export function ReceiptFeedbackPanel({
       return;
     }
 
-    if (sentVia === "email") {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(sentTo)) {
-        toast.error("Please enter a valid parent email address");
-        return;
-      }
-    } else {
-      const phoneRegex = /^\+?[0-9()\-\s]{7,20}$/;
-      if (!phoneRegex.test(sentTo)) {
-        toast.error("Please enter a valid phone number");
-        return;
-      }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(sentTo)) {
+      toast.error("Please enter a valid parent email address");
+      return;
     }
 
     try {
@@ -126,11 +116,7 @@ export function ReceiptFeedbackPanel({
 
       resetManualForm();
       setIsManualReceiptDialogOpen(false);
-      toast.success(
-        sentVia === "email"
-          ? "Manual receipt sent successfully to parent email"
-          : "Manual receipt added successfully"
-      );
+      toast.success("Manual receipt sent successfully to parent email");
     } catch (error: any) {
       toast.error(error?.message || 'Failed to add manual receipt');
     } finally {
@@ -406,27 +392,12 @@ export function ReceiptFeedbackPanel({
                     </div>
 
                     <div>
-                      <Label htmlFor="sentVia" className="text-[#0F2854] font-semibold">Send Via</Label>
-                      <select
-                        id="sentVia"
-                        value={manualReceiptForm.sentVia}
-                        onChange={(e) => setManualReceiptForm({ ...manualReceiptForm, sentVia: e.target.value as 'email' | 'sms' })}
-                        className="w-full p-2.5 border border-[#4988C4]/30 rounded-md focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
-                      >
-                        <option value="email">📧 Email</option>
-                        <option value="sms">📱 SMS</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="sentTo" className="text-[#0F2854] font-semibold">
-                        {manualReceiptForm.sentVia === 'email' ? '📧 Email Address' : '📱 Phone Number'}
-                      </Label>
+                      <Label htmlFor="sentTo" className="text-[#0F2854] font-semibold">📧 Email Address</Label>
                       <Input
                         id="sentTo"
                         value={manualReceiptForm.sentTo}
                         onChange={(e) => setManualReceiptForm({ ...manualReceiptForm, sentTo: e.target.value })}
-                        placeholder={manualReceiptForm.sentVia === 'email' ? 'parent@email.com' : '+1 (555) 123-4567'}
+                        placeholder="parent@email.com"
                         className="border-[#4988C4]/30 focus:border-[#1C4D8D] focus:ring-[#1C4D8D]"
                       />
                     </div>

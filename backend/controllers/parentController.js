@@ -8,6 +8,16 @@ const fullName = (firstName, middleName, lastName) => {
   return [firstName, middleName, lastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 };
 
+const STUDENT_STATUSES = new Set(["active", "inactive", "transferred", "graduated", "archived"]);
+const ACTIVE_STUDENT_QUERY = {
+  $or: [{ status: "active" }, { status: { $exists: false } }]
+};
+
+const normalizeStudentStatus = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return STUDENT_STATUSES.has(normalized) ? normalized : "active";
+};
+
 const getParentChildren = async (req, res) => {
   try {
     const parentLookupId = String(req.params.parentUserId || "").trim();
@@ -141,7 +151,12 @@ const getUnlinkedStudents = async (req, res) => {
 
     const [allUnlinkedStudents, pendingRequests] = await Promise.all([
       Student.find({
-        $or: [{ connectedToParent: false }, { connectedToParent: { $exists: false } }]
+        $and: [
+          {
+            $or: [{ connectedToParent: false }, { connectedToParent: { $exists: false } }]
+          },
+          ACTIVE_STUDENT_QUERY
+        ]
       })
         .sort({ createdAt: -1 })
         .lean(),
@@ -225,6 +240,14 @@ const addChildToParent = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Student not found"
+      });
+    }
+
+    const studentStatus = normalizeStudentStatus(student.status);
+    if (studentStatus !== "active") {
+      return res.status(409).json({
+        success: false,
+        message: "Only active students can be linked to a parent account"
       });
     }
 

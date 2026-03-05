@@ -3,7 +3,6 @@ const Parent = require("../models/parentModel");
 const Student = require("../models/studentModel");
 const Fee = require("../models/feeModel");
 const Notification = require("../models/notificationModel");
-const Receipt = require("../models/receiptModel");
 const ParentLinkRequest = require("../models/parentLinkRequestModel");
 const sendMail = require("../utils/mailer");
 
@@ -30,6 +29,25 @@ const inferParentConnection = (gender) => {
   return "Parent/Guardian";
 };
 
+const STUDENT_STATUSES = new Set(["active", "inactive", "transferred", "graduated", "archived"]);
+const ACTIVE_STUDENT_QUERY = {
+  $or: [{ status: "active" }, { status: { $exists: false } }]
+};
+
+const normalizeStudentStatus = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return STUDENT_STATUSES.has(normalized) ? normalized : "active";
+};
+
+const formatStudentStatusLabel = (status) => {
+  const normalized = normalizeStudentStatus(status);
+  if (normalized === "inactive") return "Inactive";
+  if (normalized === "transferred") return "Transferred";
+  if (normalized === "graduated") return "Graduated";
+  if (normalized === "archived") return "Archived";
+  return "Active";
+};
+
 const feeSummaryFromAgg = (aggregateItem) => {
   if (!aggregateItem) {
     return {
@@ -52,7 +70,7 @@ const feeSummaryFromAgg = (aggregateItem) => {
 
 const getTotalStudents = async (req, res) => {
   try {
-    const totalStudents = await Student.countDocuments();
+    const totalStudents = await Student.countDocuments(ACTIVE_STUDENT_QUERY);
 
     res.status(200).json({
       success: true,
@@ -107,6 +125,7 @@ const getAllStudents = async (req, res) => {
         childToParent.get(String(student.userId));
       const summary = feeSummaryFromAgg(feeAggMap.get(String(student.userId)));
       const computedFullName = fullName(student.firstName, student.middleName, student.lastName);
+      const status = normalizeStudentStatus(student.status);
 
       return {
         _id: student._id,
@@ -119,6 +138,8 @@ const getAllStudents = async (req, res) => {
         gender: student.gender,
         birth_date: student.birthdate,
         gradeSection: student.gradeSection,
+        status,
+        status_updated_at: student.statusUpdatedAt || null,
         connected_to_parent: student.connectedToParent,
         parent_id: parent?._id || null,
         parent: parent
@@ -183,6 +204,8 @@ const getStudentDetails = async (req, res) => {
         gender: student.gender,
         birth_date: student.birthdate,
         gradeSection: student.gradeSection,
+        status: normalizeStudentStatus(student.status),
+        status_updated_at: student.statusUpdatedAt || null,
         parent_id: parent?._id || null,
         connected_to_parent: student.connectedToParent,
         created_at: student.createdAt,
@@ -274,6 +297,14 @@ const linkStudentToParent = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Student not found"
+      });
+    }
+
+    const studentStatus = normalizeStudentStatus(student.status);
+    if (studentStatus !== "active") {
+      return res.status(409).json({
+        success: false,
+        message: `Student is ${formatStudentStatusLabel(studentStatus).toLowerCase()} and cannot be linked to a parent`
       });
     }
 
@@ -417,33 +448,179 @@ const deleteStudentAccount = async (req, res) => {
       });
     }
 
-    const userId = student.userId;
-    const studentRecordId = student._id;
-
-    await Promise.all([
-      Parent.updateMany(
-        { children: userId },
-        {
-          $pull: {
-            children: userId
-          }
+    const currentStatus = normalizeStudentStatus(student.status);
+    if (currentStatus === "inactive") {
+      return res.status(200).json({
+        success: true,
+        message: "Student account is already inactive",
+        student: {
+          student_user_id: student.userId,
+          student_id: student.studentId,
+          status: "inactive"
         }
-      ),
-      ParentLinkRequest.deleteMany({ studentUserId: userId }),
-      Fee.deleteMany({ studentId: userId }),
-      Notification.deleteMany({ studentId: studentRecordId }),
-      Receipt.deleteMany({ studentUserId: userId })
-    ]);
+      });
+    }
 
-    await Student.deleteOne({ _id: studentRecordId });
-    await User.deleteOne({ _id: userId });
+    student.status = "inactive";
+    student.statusUpdatedAt = new Date();
+    await student.save();
 
     return res.status(200).json({
       success: true,
-      message: "Student account deleted successfully"
+      message: "Student account deactivated successfully",
+      student: {
+        student_user_id: student.userId,
+        student_id: student.studentId,
+        status: "inactive",
+        status_updated_at: student.statusUpdatedAt
+      }
     });
   } catch (error) {
     console.error("Error deleting student account:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
+const unlinkStudentFromParent = async (req, res) => {
+  try {
+    const studentUserId = String(req.params.studentUserId || "").trim();
+    if (!studentUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "studentUserId is required"
+      });
+    }
+
+    const student = await Student.findOne({ userId: studentUserId });
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found"
+      });
+    }
+
+    const linkedParent = student.parentId
+      ? await Parent.findById(student.parentId).lean()
+      : await Parent.findOne({ children: student.userId }).lean();
+
+    if (!linkedParent && !student.connectedToParent && !student.parentId) {
+      return res.status(200).json({
+        success: true,
+        message: "Student is already unlinked from a parent",
+        student: {
+          student_user_id: student.userId,
+          student_id: student.studentId,
+          parent_id: null,
+          connected_to_parent: false
+        }
+      });
+    }
+
+    await Promise.all([
+      Parent.updateMany(
+        { children: student.userId },
+        {
+          $pull: {
+            children: student.userId
+          }
+        }
+      ),
+      Student.updateOne(
+        { _id: student._id },
+        {
+          $set: {
+            parentId: null,
+            connectedToParent: false
+          }
+        }
+      )
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Student unlinked from parent successfully",
+      student: {
+        student_user_id: student.userId,
+        student_id: student.studentId,
+        parent_id: null,
+        connected_to_parent: false
+      },
+      parent: linkedParent
+        ? {
+            parent_id: linkedParent._id,
+            parent_user_id: linkedParent.userId
+          }
+        : null
+    });
+  } catch (error) {
+    console.error("Error unlinking student from parent:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
+const updateStudentStatus = async (req, res) => {
+  try {
+    const studentUserId = String(req.params.studentUserId || "").trim();
+    const requestedStatus = String(req.body?.status || "").trim().toLowerCase();
+
+    if (!studentUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "studentUserId is required"
+      });
+    }
+
+    if (!STUDENT_STATUSES.has(requestedStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "status must be one of: active, inactive, transferred, graduated, archived"
+      });
+    }
+
+    const student = await Student.findOne({ userId: studentUserId });
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found"
+      });
+    }
+
+    const currentStatus = normalizeStudentStatus(student.status);
+    if (currentStatus === requestedStatus) {
+      return res.status(200).json({
+        success: true,
+        message: `Student is already ${formatStudentStatusLabel(requestedStatus).toLowerCase()}`,
+        student: {
+          student_user_id: student.userId,
+          student_id: student.studentId,
+          status: currentStatus,
+          status_updated_at: student.statusUpdatedAt || null
+        }
+      });
+    }
+
+    student.status = requestedStatus;
+    student.statusUpdatedAt = new Date();
+    await student.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Student marked as ${formatStudentStatusLabel(requestedStatus).toLowerCase()}`,
+      student: {
+        student_user_id: student.userId,
+        student_id: student.studentId,
+        status: normalizeStudentStatus(student.status),
+        status_updated_at: student.statusUpdatedAt
+      }
+    });
+  } catch (error) {
+    console.error("Error updating student status:", error);
     return res.status(500).json({
       success: false,
       message: "Server error"
@@ -523,6 +700,8 @@ module.exports = {
   getAllParents,
   linkStudentToParent,
   notifyParent,
+  updateStudentStatus,
+  unlinkStudentFromParent,
   deleteStudentAccount,
   deleteParentAccount
 };

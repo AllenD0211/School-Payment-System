@@ -10,6 +10,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_USER_TYPES = new Set(["student", "parent"]);
+const STUDENT_STATUSES = new Set(["active", "inactive", "transferred", "graduated", "archived"]);
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 
 const normalizeGender = (value) => {
@@ -27,6 +28,27 @@ const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const parseDate = (dateInput) => {
   const parsed = new Date(dateInput);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeStudentStatus = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return STUDENT_STATUSES.has(normalized) ? normalized : "active";
+};
+
+const getStudentStatusLoginMessage = (status) => {
+  if (status === "inactive") {
+    return "Your student account is inactive. Please contact the school administrator.";
+  }
+  if (status === "transferred") {
+    return "Your student account is marked as transferred and cannot be used to login.";
+  }
+  if (status === "graduated") {
+    return "Your student account is marked as graduated and cannot be used to login.";
+  }
+  if (status === "archived") {
+    return "Your student account is archived and cannot be used to login.";
+  }
+  return "Student account is not allowed to login.";
 };
 
 const generateOtpCode = () => crypto.randomInt(100000, 1000000).toString();
@@ -311,6 +333,26 @@ const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    if (user.userType === "student") {
+      const student = await Student.findOne({ userId: user._id })
+        .select("status")
+        .lean();
+
+      if (!student) {
+        return res.status(403).json({
+          message: "Student profile not found. Please contact the school administrator."
+        });
+      }
+
+      const studentStatus = normalizeStudentStatus(student.status);
+      if (studentStatus !== "active") {
+        return res.status(403).json({
+          message: getStudentStatusLoginMessage(studentStatus),
+          studentStatus
+        });
+      }
     }
 
     if (user.userType !== "admin" && user.isVerified === false) {

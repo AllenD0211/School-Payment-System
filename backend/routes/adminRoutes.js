@@ -8,6 +8,8 @@ const {
   getAllParents,
   linkStudentToParent,
   notifyParent,
+  updateStudentStatus,
+  unlinkStudentFromParent,
   deleteStudentAccount,
   deleteParentAccount
 } = require("../controllers/adminController");
@@ -17,6 +19,8 @@ router.use(authenticate, requireAdmin);
 router.get("/total-students", getTotalStudents);
 router.get("/students", getAllStudents);
 router.get("/students/:studentUserId", getStudentDetails);
+router.put("/students/:studentUserId/status", updateStudentStatus);
+router.post("/students/:studentUserId/unlink-parent", unlinkStudentFromParent);
 router.delete("/students/:studentUserId", deleteStudentAccount);
 router.post("/students/:studentUserId/delete", deleteStudentAccount);
 router.delete("/parents/:parentId", deleteParentAccount);

@@ -51,6 +51,15 @@ const studentSchema = new mongoose.Schema(
     connectedToParent: {
       type: Boolean,
       default: false
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "transferred", "graduated", "archived"],
+      default: "active"
+    },
+    statusUpdatedAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }

@@ -28,6 +28,7 @@ const EVENT_SYNC_WINDOW_EVENT = "events-updated";
 
 type DashboardStudent = {
   student_id: string;
+  status?: string;
   fee_summary?: {
     paidAmount?: number;
     pendingAmount?: number;
@@ -43,6 +44,20 @@ const toStringValue = (value: unknown) => {
 const toSafeNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeStudentStatus = (value: unknown) => {
+  const normalized = toStringValue(value).toLowerCase();
+  if (
+    normalized === "active" ||
+    normalized === "inactive" ||
+    normalized === "transferred" ||
+    normalized === "graduated" ||
+    normalized === "archived"
+  ) {
+    return normalized;
+  }
+  return "active";
 };
 
 const toLocalDateTime = (value: unknown) => {
@@ -444,7 +459,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const totalStudents = students.length;
+  const totalStudents = students.filter(
+    (student) => normalizeStudentStatus(student.status) === "active",
+  ).length;
   const totalCollected = students.reduce(
     (sum, s) => sum + Number(s.fee_summary?.paidAmount || 0),
     0,
@@ -496,7 +513,7 @@ export default function AdminDashboard() {
           <Card className="p-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Students</p>
+                <p className="text-sm text-muted-foreground mb-1">Active Students</p>
                 <p className="text-3xl font-bold text-[#0F2854]">{totalStudents}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-lg">

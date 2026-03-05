@@ -33,7 +33,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Bell,
-  ChevronDown,
   ReceiptText,
   Search,
   UserRound,
@@ -132,11 +131,6 @@ const EMPTY_FEE_FORM: FeeForm = {
 const EMPTY_NOTIFY_FORM: NotifyForm = {
   message: "",
 };
-
-const SELECT_BASE_CLASS =
-  "w-full appearance-none rounded-md border border-[#BDE8F5] bg-gradient-to-b from-white to-[#F5FAFF] px-3 pr-9 text-sm font-medium text-[#0F2854] shadow-sm transition-all outline-none hover:border-[#4988C4] focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#BDE8F5] disabled:cursor-not-allowed disabled:opacity-60";
-const SELECT_STANDARD_CLASS = `${SELECT_BASE_CLASS} h-10`;
-const SELECT_COMPACT_CLASS = `${SELECT_BASE_CLASS} h-9`;
 
 const toStringValue = (value: unknown) => {
   if (value === null || value === undefined) return "";
@@ -977,36 +971,23 @@ export function StudentTable({
             </div>
           </div>
           <div className="flex flex-wrap gap-2 self-start lg:self-auto">
-            <div className="relative min-w-[280px]">
-              <select
-                value={statusAction}
-                onChange={(e) => {
-                  void handleStatusActionChange(
-                    (e.target.value as StudentStatus | "") || "",
-                  );
-                }}
-                className={SELECT_STANDARD_CLASS}
-                disabled={isLoadingDetail || isUpdatingStudentStatus}
-              >
-                <option value="">Student Status Actions</option>
-                <option value="inactive" style={{ color: "#dc2626" }}>
-                  Deactivate Student (Inactive)
-                </option>
-                <option value="transferred" style={{ color: "#d97706" }}>
-                  Mark as Transferred
-                </option>
-                <option value="graduated" style={{ color: "#2563eb" }}>
-                  Mark as Graduated
-                </option>
-                <option value="archived" style={{ color: "#3f3f46" }}>
-                  Archive Student
-                </option>
-                <option value="active" style={{ color: "#059669" }}>
-                  Reactivate Student
-                </option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4988C4]" />
-            </div>
+            <select
+              value={statusAction}
+              onChange={(e) => {
+                void handleStatusActionChange(
+                  (e.target.value as StudentStatus | "") || "",
+                );
+              }}
+              className="h-10 rounded-md border px-3 text-sm min-w-[220px] border-[#BDE8F5] bg-[#F7FBFF] text-[#0F2854]"
+              disabled={isLoadingDetail || isUpdatingStudentStatus}
+            >
+              <option value="">Student Status Actions</option>
+              <option value="inactive">Deactivate Student</option>
+              <option value="transferred">Mark as Transferred</option>
+              <option value="graduated">Mark as Graduated</option>
+              <option value="archived">Archive Student</option>
+              <option value="active">Reactivate Student</option>
+            </select>
             <Button
               variant="outline"
               onClick={() => setDeleteParentDialogOpen(true)}
@@ -1178,22 +1159,19 @@ export function StudentTable({
                             />
                           </TableCell>
                           <TableCell>
-                            <div className="relative">
-                              <select
-                                value={feeForm.status}
-                                onChange={(e) =>
-                                  setFeeForm((prev) => ({
-                                    ...prev,
-                                    status: e.target.value as FeeForm["status"],
-                                  }))
-                                }
-                                className={SELECT_COMPACT_CLASS}
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="paid">Paid</option>
-                              </select>
-                              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4988C4]" />
-                            </div>
+                            <select
+                              value={feeForm.status}
+                              onChange={(e) =>
+                                setFeeForm((prev) => ({
+                                  ...prev,
+                                  status: e.target.value as FeeForm["status"],
+                                }))
+                              }
+                              className="h-9 rounded-md border px-3 text-sm w-full"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="paid">Paid</option>
+                            </select>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
@@ -1513,22 +1491,19 @@ export function StudentTable({
                       setFeeForm((prev) => ({ ...prev, due_date: e.target.value }))
                     }
                   />
-                  <div className="relative">
-                    <select
-                      value={feeForm.status}
-                      onChange={(e) =>
-                        setFeeForm((prev) => ({
-                          ...prev,
-                          status: e.target.value as FeeForm["status"],
-                        }))
-                      }
-                      className={SELECT_COMPACT_CLASS}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="paid">Paid</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4988C4]" />
-                  </div>
+                  <select
+                    value={feeForm.status}
+                    onChange={(e) =>
+                      setFeeForm((prev) => ({
+                        ...prev,
+                        status: e.target.value as FeeForm["status"],
+                      }))
+                    }
+                    className="h-9 rounded-md border px-3 text-sm w-full"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                  </select>
                 </div>
                 <DialogFooter>
                   <Button
@@ -1646,58 +1621,42 @@ export function StudentTable({
             Select a student to open full profile and fee records.
           </p>
         </div>
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+        <div className="flex gap-3 w-full md:w-auto">
           <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 text-[#1C4D8D] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search student_id, first_name, last_name, gradeSection"
-              className="h-10 pl-10 border-2 border-[#84BFE0] bg-white shadow-sm placeholder:text-[#6C90B2] focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#BDE8F5]"
+              className="pl-9"
             />
           </div>
-          <div className="relative w-full md:min-w-[260px]">
-            <select
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter((e.target.value as "all" | StudentStatus) || "all")
-              }
-              className={SELECT_COMPACT_CLASS}
-            >
-              <option value="all">All Students</option>
-              <option value="active" style={{ color: "#059669" }}>
-                Active - currently enrolled
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter((e.target.value as "all" | StudentStatus) || "all")
+            }
+            className="h-9 rounded-md border px-3 text-sm min-w-[220px] border-[#BDE8F5] bg-[#F7FBFF]"
+          >
+            <option value="all">All Students</option>
+            <option value="active">Active Students</option>
+            <option value="inactive">Inactive Students</option>
+            <option value="transferred">Transferred Students</option>
+            <option value="graduated">Graduated Students</option>
+            <option value="archived">Archived Students</option>
+          </select>
+          <select
+            value={gradeFilter}
+            onChange={(e) => setGradeFilter(e.target.value)}
+            className="h-9 rounded-md border px-3 text-sm min-w-[220px] border-[#BDE8F5] bg-[#F7FBFF]"
+          >
+            <option value="all">All Grade-Section</option>
+            {gradeOptions.map((grade) => (
+              <option key={grade} value={grade}>
+                {grade}
               </option>
-              <option value="transferred" style={{ color: "#d97706" }}>
-                Transferred - moved to another school
-              </option>
-              <option value="graduated" style={{ color: "#2563eb" }}>
-                Graduated - finished studies
-              </option>
-              <option value="inactive" style={{ color: "#dc2626" }}>
-                Inactive - temporarily not enrolled
-              </option>
-              <option value="archived" style={{ color: "#3f3f46" }}>
-                Archived - kept for records
-              </option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4988C4]" />
-          </div>
-          <div className="relative w-full md:min-w-[260px]">
-            <select
-              value={gradeFilter}
-              onChange={(e) => setGradeFilter(e.target.value)}
-              className={SELECT_COMPACT_CLASS}
-            >
-              <option value="all">All Grade-Section</option>
-              {gradeOptions.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4988C4]" />
-          </div>
+            ))}
+          </select>
         </div>
       </div>
 
